@@ -30,16 +30,24 @@ sidebar <- dashboardSidebar(sidebarMenu(
         inputId = "chkbox_showanomalies",
         label = "Show Anomalies",
         value = TRUE
+    ),
+    prettyCheckbox(
+        inputId = "chkbox_freey",
+        label = "Free Y Scale",
+        value = TRUE
     )
 ))
 
 body <- dashboardBody(tabsetPanel(
     tabPanel(
-        "Current category",
-        plotOutput("tsplot", brush = "user_brush", click = "plot_click"),
-        h2('Selected points'),
-        reactableOutput("outtable"),
-        verbatimTextOutput("info")
+        "Overlayed View",
+        plotOutput("tsplot", brush = "user_brush", click = "user_click"),
+        h3('Selection'),
+        reactableOutput("outtable")
+    ),
+    tabPanel(
+        "Faceted View",
+        plotOutput("tsplot_faceted", height = "850px")
     )
 ))
 
@@ -157,6 +165,17 @@ server <- function(input, output) {
         }, message = "Loading graph...")
     })
     
+    output$tsplot_faceted <- renderPlot({
+        dat <- filtered_data()
+        xyplot(value~ds|cat,
+               dat,
+               type = "l",
+               scales = ifelse(input$chkbox_freey, "free", "same"),
+               xlab = "Date",
+               ylab = "Value",
+               auto.key = list(columns = 5))
+    })
+
     output$outtable <- renderReactable(reactable(selectedPoints()))
     
     selectedPoints <- reactive({
