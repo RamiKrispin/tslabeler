@@ -84,6 +84,9 @@ server <- function(input, output) {
                                              format = "%Y-%m-%d %H:%M:%S",
                                              tz = "UTC",
                                              lt = FALSE)]
+        if(all(is.na(out[,ds])))
+            stop("Could not parse date-time column. Format expected: %Y-%m-%d %H:%M:%S")
+        
         out[, grp := as.character(grp)]
         out[, value := as.numeric(value)]
         
