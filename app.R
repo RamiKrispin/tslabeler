@@ -3,6 +3,7 @@ suppressMessages(library(data.table))
 suppressMessages(library(lattice))
 suppressMessages(library(ggplot2))
 suppressMessages(library(shiny))
+suppressMessages(library(shinyBS))
 suppressMessages(library(shinyWidgets))
 suppressMessages(library(shinydashboard))
 suppressMessages(library(reactable))
@@ -32,6 +33,16 @@ sidebar <- dashboardSidebar(sidebarMenu(
     ),
     hr(),
     uiOutput("taglist"),
+    actionBttn(
+        inputId = "btn_newtag",
+        label = NULL,
+        style = "material-circle", 
+        color = "default",
+        size = "xs",
+        icon = icon("plus")
+    ),
+    bsTooltip(id = "btn_newtag", title = "Add your own tag", 
+              placement = "right", trigger = "hover", options = NULL),
     actionButton("mark", "Mark Anomaly", icon = icon("thumb-tack")),
     hr(),
     downloadBttn("download", label = "Download", style = "minimal", size = "s")
@@ -146,6 +157,24 @@ server <- function(input, output) {
         values$original[grp %in% input$picker_group &
                             ds >= as.POSIXct(input$daterange[1], tz = "UTC") &
                             ds <= as.POSIXct(input$daterange[2], tz = "UTC")]
+    })
+    
+    observeEvent(input$btn_newtag, {
+        showModal(modalDialog(
+            textInput(inputId = "textinput_customtag",
+                      label = "What's your custom tag?"),
+            # title = "Tag",
+            footer = tagList(
+                actionButton("btn_customtag_ok", "Add")
+            ),
+            easyClose = TRUE
+        ))
+    })
+    
+    observeEvent(input$btn_customtag_ok, {
+        if(input$textinput_customtag != "")
+            values$tag_list <- c(values$tag_list,
+                                 input$textinput_customtag)
     })
     
     output$tsplot <- renderPlot({
