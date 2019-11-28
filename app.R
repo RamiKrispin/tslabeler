@@ -21,6 +21,7 @@ sidebar <- dashboardSidebar(sidebarMenu(
     ),
     uiOutput("grp_list"),
     uiOutput("daterange"),
+    uiOutput("dateslider"),
     prettyCheckboxGroup(
         inputId = "chkbox_plotopts",
         label = "Plot Options",
@@ -153,10 +154,23 @@ server <- function(input, output) {
         )
     })
     
+    output$dateslider <- renderUI({
+        req(input$daterange)
+        sliderTextInput(
+            'dateslider',
+            label = NULL,
+            choices = seq(input$daterange[1],
+                          input$daterange[2],
+                          by = "1 day"),
+            selected = c(input$daterange[1],
+                         input$daterange[2])
+        )
+    })
+    
     filtered_data <- reactive({
         values$original[grp %in% input$picker_group &
-                            ds >= as.POSIXct(input$daterange[1], tz = "UTC") &
-                            ds <= as.POSIXct(input$daterange[2], tz = "UTC")]
+                            ds >= as.POSIXct(as.character(input$dateslider[1]), tz = "UTC") &
+                            ds <= as.POSIXct(as.character(input$dateslider[2]), tz = "UTC")]
     })
     
     observeEvent(input$btn_newtag, {
