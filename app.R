@@ -68,17 +68,32 @@ server <- function(input, output) {
         
         out <- fread(
             file = infile$datapath,
-            col.names = c("ds", "grp", "value"),
-            key = "ds"
+            header = TRUE
         )
+        
+        if(ncol(out)==3)
+            setnames(out, c("ds", "grp", "value"))
+        else if(ncol(out)==5)
+            setnames(out, c("ds", "grp", "value", "anomaly", "tag"))
+        else
+            stop("Input file non-compliant")
+            
+        setkeyv(out, "ds")
+        
         out[, ds := lubridate::fast_strptime(ds,
                                              format = "%Y-%m-%d %H:%M:%S",
                                              tz = "UTC",
                                              lt = FALSE)]
+        if(all(is.na(out[,ds])))
+            stop("Could not parse date-time column. Format expected: %Y-%m-%d %H:%M:%S")
+        
         out[, grp := as.character(grp)]
         out[, value := as.numeric(value)]
-        out[, anomaly := 0]
-        out[, tag := NA]
+        
+        if(ncol(out)==3){
+            out[, anomaly := 0]
+            out[, tag := NA]
+        }
         
         values$original <- out
     })
