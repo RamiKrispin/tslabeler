@@ -17,24 +17,24 @@ tab_plots <- function() {
 sidebar <- dashboardSidebar(sidebarMenu(
     fileInput(
         inputId = "filein_rawdata",
-        label = "Choose file",
+        label = "Input data",
         multiple = FALSE,
         accept = c("text/csv",
                    "text/comma-separated-values,text/plain",
                    ".csv")
     ),
-    uiOutput("cat_list"),
+    uiOutput("grp_list"),
     uiOutput("daterange"),
     actionButton("mark", "Mark Anomaly"),
-    prettyCheckbox(
-        inputId = "chkbox_showanomalies",
-        label = "Show Anomalies",
-        value = TRUE
-    ),
-    prettyCheckbox(
-        inputId = "chkbox_freey",
-        label = "Free Y Scale",
-        value = TRUE
+    prettyCheckboxGroup(
+        inputId = "chkbox_plotopts",
+        label = "Plot Options",
+        choiceNames = c("Show anomalies",
+                    "Free Y scale",
+                    "Show legend"),
+        choiceValues = c("anomaly", "freey", "legend"),
+        selected = c("anomaly", "freey", "legend"),
+        status = "info"
     )
 ))
 
@@ -68,14 +68,14 @@ server <- function(input, output) {
         
         out <- fread(
             file = infile$datapath,
-            col.names = c("ds", "cat", "value"),
+            col.names = c("ds", "grp", "value"),
             key = "ds"
         )
         out[, ds := lubridate::fast_strptime(ds,
                                              format = "%Y-%m-%d %H:%M:%S",
                                              tz = "UTC",
                                              lt = FALSE)]
-        out[, cat := as.character(cat)]
+        out[, grp := as.character(grp)]
         out[, value := as.numeric(value)]
         out[, anomaly := 0]
         out[, tag := NA]
@@ -83,13 +83,15 @@ server <- function(input, output) {
         values$original <- out
     })
 
-    output$cat_list <- renderUI({
+    output$grp_list <- renderUI({
         req(input$filein_rawdata)
         pickerInput(
-            inputId = "picker_categories",
-            label = "TS Category",
-            choices = values$original[, unique(cat)],
-            options = list(`live-search` = TRUE),
+            inputId = "picker_group",
+            label = "Group",
+            choices = values$original[, unique(grp)],
+            selected = values$original[, unique(grp)][1],
+            options = list(`live-search` = TRUE,
+                           `actions-box` = TRUE),
             multiple = TRUE
         )
     })
@@ -105,7 +107,7 @@ server <- function(input, output) {
     })
     
     filtered_data <- reactive({
-        values$original[cat %in% input$picker_categories &
+        values$original[grp %in% input$picker_group &
                             ds >= as.POSIXct(input$daterange[1], tz = "UTC") &
                             ds <= as.POSIXct(input$daterange[2], tz = "UTC")]
     })
@@ -114,11 +116,11 @@ server <- function(input, output) {
         withProgress({
             dat <- filtered_data()
             
-            cat_filtered <- dat[, unique(cat)]
+            grp_filtered <- dat[, unique(grp)]
             
             plot(
-                dat[cat == cat_filtered[1], ds],
-                dat[cat == cat_filtered[1], value],
+                dat[grp == grp_filtered[1], ds],
+                dat[grp == grp_filtered[1], value],
                 type = "l",
                 col = "red",
                 lty = 1,
@@ -128,25 +130,25 @@ server <- function(input, output) {
                 xlab = "Date",
                 ylab = "Value"
             )
-            if (input$chkbox_showanomalies) {
-                subdat <- dat[cat == cat_filtered[1] &
+            if ("anomaly" %in% input$chkbox_plotopts) {
+                subdat <- dat[grp == grp_filtered[1] &
                                   anomaly == 1]
                 points(subdat[, ds],
                        subdat[, value],
                        col = "red",
                        pch = 19)
             }
-            for (i in 1:length(cat_filtered)) {
+            for (i in 1:length(grp_filtered)) {
                 lines(
-                    x = dat[cat == cat_filtered[i], ds],
-                    y = dat[cat == cat_filtered[i], value],
+                    x = dat[grp == grp_filtered[i], ds],
+                    y = dat[grp == grp_filtered[i], value],
                     type = "l",
                     col = i,
                     lty = 1,
                     lwd = 2
                 )
-                if (input$chkbox_showanomalies) {
-                    subdat <- dat[cat == cat_filtered[i] &
+                if ("anomaly" %in% input$chkbox_plotopts) {
+                    subdat <- dat[grp == grp_filtered[i] &
                                       anomaly == 1]
                     points(subdat[, ds],
                            subdat[, value],
@@ -154,23 +156,23 @@ server <- function(input, output) {
                            pch = 19)
                 }
             }
-            legend(
-                "topleft",
-                legend = cat_filtered,
-                col = 1:length(cat_filtered),
-                bg = "white",
-                lwd = 2
-            )
-            
+            if("legend" %in% input$chkbox_plotopts)
+                legend(
+                    "topleft",
+                    legend = grp_filtered,
+                    col = 1:length(grp_filtered),
+                    bg = "white",
+                    lwd = 2
+                )
         }, message = "Loading graph...")
     })
     
     output$tsplot_faceted <- renderPlot({
         dat <- filtered_data()
-        xyplot(value~ds|cat,
+        xyplot(value~ds|grp,
                dat,
                type = "l",
-               scales = ifelse(input$chkbox_freey, "free", "same"),
+               scales = ifelse("freey" %in% input$chkbox_plotopts, "free", "same"),
                xlab = "Date",
                ylab = "Value",
                auto.key = list(columns = 5))
@@ -188,12 +190,11 @@ server <- function(input, output) {
     })
     
     observeEvent(input$mark, {
-        # dat <- processed_data()
         values$new <- values$original
         seldat <- selectedPoints()
         for (i in 1:nrow(seldat)) {
             values$new[ds == seldat[i, ds] &
-                           cat == seldat[i, cat],
+                           grp == seldat[i, grp],
                        anomaly := 1]
         }
         values$original <- values$new
