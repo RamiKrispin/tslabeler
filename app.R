@@ -25,7 +25,6 @@ sidebar <- dashboardSidebar(sidebarMenu(
     ),
     uiOutput("grp_list"),
     uiOutput("daterange"),
-    actionButton("mark", "Mark Anomaly"),
     prettyCheckboxGroup(
         inputId = "chkbox_plotopts",
         label = "Plot Options",
@@ -35,7 +34,11 @@ sidebar <- dashboardSidebar(sidebarMenu(
         choiceValues = c("anomaly", "freey", "legend"),
         selected = c("anomaly", "freey", "legend"),
         status = "info"
-    )
+    ),
+    hr(),
+    actionButton("mark", "Mark Anomaly", icon = icon("thumb-tack")),
+    hr(),
+    downloadBttn("download", label = "Download", style = "minimal", size = "s")
 ))
 
 body <- dashboardBody(tabsetPanel(
@@ -214,6 +217,18 @@ server <- function(input, output) {
         }
         values$original <- values$new
     })
+    
+    output$download <- downloadHandler(
+        filename = function() {
+            paste(input$filein_rawdata$name, ".csv", sep = "")
+        },
+        content = function(file) {
+            fwrite(x = values$original, 
+                   file = file, 
+                   row.names = FALSE,
+                   col.names = TRUE)
+        }
+    )
 }
 
 shinyApp(ui, server, options = list(port = 4686))
