@@ -2,17 +2,13 @@ suppressMessages(library(drake))
 suppressMessages(library(data.table))
 suppressMessages(library(lattice))
 suppressMessages(library(ggplot2))
-# suppressMessages(library(magrittr))
 suppressMessages(library(shiny))
+suppressMessages(library(shinyBS))
 suppressMessages(library(shinyWidgets))
 suppressMessages(library(shinydashboard))
 suppressMessages(library(reactable))
 
 options(shiny.maxRequestSize = 50 * 1024 ^ 2)
-
-tab_plots <- function() {
-    
-}
 
 sidebar <- dashboardSidebar(sidebarMenu(
     fileInput(
@@ -36,6 +32,17 @@ sidebar <- dashboardSidebar(sidebarMenu(
         status = "info"
     ),
     hr(),
+    uiOutput("taglist"),
+    actionBttn(
+        inputId = "btn_newtag",
+        label = NULL,
+        style = "material-circle", 
+        color = "default",
+        size = "xs",
+        icon = icon("plus")
+    ),
+    bsTooltip(id = "btn_newtag", title = "Add your own tag", 
+              placement = "right", trigger = "hover", options = NULL),
     actionButton("mark", "Mark Anomaly", icon = icon("thumb-tack")),
     hr(),
     downloadBttn("download", label = "Download", style = "minimal", size = "s")
@@ -63,6 +70,11 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
     values <- reactiveValues()
+    
+    values$tag_list <- c("spikes",
+                         "trend-change",
+                         "level-shift",
+                         "variance-shift")
     
     observeEvent(input$filein_rawdata, {
         infile <- input$filein_rawdata
@@ -96,11 +108,28 @@ server <- function(input, output) {
         if(ncol(out)==3){
             out[, anomaly := 0]
             out[, tag := NA]
+        } else if (ncol(out)==5) {
+            tags_in_file <- out[anomaly==1,unique(tag)]
+            custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_list)]
+            if(length(custom_tags)>0)
+                values$tag_list <- c(values$tag_list, custom_tags)
         }
         
         values$original <- out
     })
 
+    output$taglist <- renderUI({
+        prettyRadioButtons(
+            inputId = "radio_taglist",
+            label = "Tags", 
+            choices = values$tag_list,
+            selected = values$tag_list[1],
+            inline = TRUE, 
+            status = "danger",
+            fill = TRUE
+        )
+    })
+    
     output$grp_list <- renderUI({
         req(input$filein_rawdata)
         pickerInput(
@@ -128,6 +157,24 @@ server <- function(input, output) {
         values$original[grp %in% input$picker_group &
                             ds >= as.POSIXct(input$daterange[1], tz = "UTC") &
                             ds <= as.POSIXct(input$daterange[2], tz = "UTC")]
+    })
+    
+    observeEvent(input$btn_newtag, {
+        showModal(modalDialog(
+            textInput(inputId = "textinput_customtag",
+                      label = "What's your custom tag?"),
+            # title = "Tag",
+            footer = tagList(
+                actionButton("btn_customtag_ok", "Add")
+            ),
+            easyClose = TRUE
+        ))
+    })
+    
+    observeEvent(input$btn_customtag_ok, {
+        if(input$textinput_customtag != "")
+            values$tag_list <- c(values$tag_list,
+                                 input$textinput_customtag)
     })
     
     output$tsplot <- renderPlot({
@@ -214,6 +261,9 @@ server <- function(input, output) {
             values$new[ds == seldat[i, ds] &
                            grp == seldat[i, grp],
                        anomaly := 1]
+            values$new[ds == seldat[i, ds] &
+                           grp == seldat[i, grp],
+                       tag := input$radio_taglist]
         }
         values$original <- values$new
     })
