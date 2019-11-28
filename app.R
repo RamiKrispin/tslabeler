@@ -2,17 +2,12 @@ suppressMessages(library(drake))
 suppressMessages(library(data.table))
 suppressMessages(library(lattice))
 suppressMessages(library(ggplot2))
-# suppressMessages(library(magrittr))
 suppressMessages(library(shiny))
 suppressMessages(library(shinyWidgets))
 suppressMessages(library(shinydashboard))
 suppressMessages(library(reactable))
 
 options(shiny.maxRequestSize = 50 * 1024 ^ 2)
-
-tab_plots <- function() {
-    
-}
 
 sidebar <- dashboardSidebar(sidebarMenu(
     fileInput(
@@ -36,6 +31,7 @@ sidebar <- dashboardSidebar(sidebarMenu(
         status = "info"
     ),
     hr(),
+    uiOutput("taglist"),
     actionButton("mark", "Mark Anomaly", icon = icon("thumb-tack")),
     hr(),
     downloadBttn("download", label = "Download", style = "minimal", size = "s")
@@ -63,6 +59,11 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
     values <- reactiveValues()
+    
+    values$tag_list <- c("spikes",
+                         "trend-change",
+                         "level-shift",
+                         "variance-shift")
     
     observeEvent(input$filein_rawdata, {
         infile <- input$filein_rawdata
@@ -96,11 +97,28 @@ server <- function(input, output) {
         if(ncol(out)==3){
             out[, anomaly := 0]
             out[, tag := NA]
+        } else if (ncol(out)==5) {
+            tags_in_file <- out[anomaly==1,unique(tag)]
+            custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_list)]
+            if(length(custom_tags)>0)
+                values$tag_list <- c(values$tag_list, custom_tags)
         }
         
         values$original <- out
     })
 
+    output$taglist <- renderUI({
+        prettyRadioButtons(
+            inputId = "radio_taglist",
+            label = "Tags", 
+            choices = values$tag_list,
+            selected = values$tag_list[1],
+            inline = TRUE, 
+            status = "danger",
+            fill = TRUE
+        )
+    })
+    
     output$grp_list <- renderUI({
         req(input$filein_rawdata)
         pickerInput(
@@ -214,6 +232,9 @@ server <- function(input, output) {
             values$new[ds == seldat[i, ds] &
                            grp == seldat[i, grp],
                        anomaly := 1]
+            values$new[ds == seldat[i, ds] &
+                           grp == seldat[i, grp],
+                       tag := input$radio_taglist]
         }
         values$original <- values$new
     })
