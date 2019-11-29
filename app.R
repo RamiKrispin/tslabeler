@@ -33,20 +33,22 @@ sidebar <- dashboardSidebar(sidebarMenu(
         status = "info"
     ),
     hr(),
-    uiOutput("taglist"),
     actionBttn(
         inputId = "btn_newtag",
         label = NULL,
         style = "material-circle", 
-        color = "default",
+        color = "primary",
         size = "xs",
         icon = icon("plus")
     ),
+    uiOutput("taglist"),
     bsTooltip(id = "btn_newtag", title = "Add your own tag", 
               placement = "right", trigger = "hover", options = NULL),
     actionButton("mark", "Mark Anomaly", icon = icon("thumb-tack")),
     hr(),
-    downloadBttn("download", label = "Download", style = "minimal", size = "s")
+    downloadBttn("download", label = "Download", style = "minimal", size = "s"),
+    hr(),
+    uiOutput("metadata")
 ))
 
 body <- dashboardBody(tabsetPanel(
@@ -71,11 +73,6 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
     values <- reactiveValues()
-    
-    values$tag_list <- c("spikes",
-                         "trend-change",
-                         "level-shift",
-                         "variance-shift")
     
     observeEvent(input$filein_rawdata, {
         infile <- input$filein_rawdata
@@ -106,9 +103,14 @@ server <- function(input, output) {
         out[, grp := as.character(grp)]
         out[, value := as.numeric(value)]
         
+        values$tag_list <- c("spikes",
+                             "trend-change",
+                             "level-shift",
+                             "variance-shift")
+        
         if(ncol(out)==3){
             out[, anomaly := 0]
-            out[, tag := NA]
+            out[, tag := ""]
         } else if (ncol(out)==5) {
             tags_in_file <- out[anomaly==1,unique(tag)]
             custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_list)]
@@ -120,6 +122,7 @@ server <- function(input, output) {
     })
 
     output$taglist <- renderUI({
+        req(input$filein_rawdata)
         prettyRadioButtons(
             inputId = "radio_taglist",
             label = "Tags", 
@@ -192,6 +195,7 @@ server <- function(input, output) {
     })
     
     output$tsplot <- renderPlot({
+        req(input$filein_rawdata)
         withProgress({
             dat <- filtered_data()
             
@@ -247,6 +251,7 @@ server <- function(input, output) {
     })
     
     output$tsplot_faceted <- renderPlot({
+        req(input$filein_rawdata)
         dat <- filtered_data()
         xyplot(value~ds|grp,
                dat,
@@ -257,7 +262,9 @@ server <- function(input, output) {
                auto.key = list(columns = 5))
     })
 
-    output$outtable <- renderReactable(reactable(selectedPoints()))
+    output$outtable <- renderReactable({
+        req(input$filein_rawdata)
+        reactable(selectedPoints())})
     
     selectedPoints <- reactive({
         brushedPoints(
@@ -293,6 +300,14 @@ server <- function(input, output) {
                    col.names = TRUE)
         }
     )
+    
+    output$metadata <- renderUI({
+        req(input$filein_rawdata)
+        dat <- filtered_data()
+        p("# filtered pts:", dat[,.N],
+          br(),
+        "# anomalies:", dat[,sum(anomaly)])
+    })
 }
 
 shinyApp(ui, server, options = list(port = 4686))
