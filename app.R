@@ -48,7 +48,7 @@ sidebar <- dashboardSidebar(sidebarMenu(
     hr(),
     downloadBttn("download", label = "Download", style = "minimal", size = "s"),
     hr(),
-    uiOutput("metadata")
+    sidebarMenuOutput("metadata")
 ))
 
 body <- dashboardBody(tabsetPanel(
@@ -108,14 +108,19 @@ server <- function(input, output) {
                              "level-shift",
                              "variance-shift")
         
+        values$total_pts <- out[,.N]
+        values$total_grps <- out[,length(unique(grp))]
+        
         if(ncol(out)==3){
             out[, anomaly := 0]
             out[, tag := ""]
+            values$count_existing_anomalies <- 0
         } else if (ncol(out)==5) {
             tags_in_file <- out[anomaly==1,unique(tag)]
             custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_list)]
             if(length(custom_tags)>0)
                 values$tag_list <- c(values$tag_list, custom_tags)
+            values$count_existing_anomalies <- out[anomaly==1, .N]
         }
         
         values$original <- out
@@ -171,6 +176,7 @@ server <- function(input, output) {
     })
     
     filtered_data <- reactive({
+        values$pts_selected_grps <- values$original[grp %in% input$picker_group,.N]
         values$original[grp %in% input$picker_group &
                             ds >= as.POSIXct(as.character(input$dateslider[1]), tz = "UTC") &
                             ds <= as.POSIXct(as.character(input$dateslider[2]), tz = "UTC")]
@@ -301,13 +307,18 @@ server <- function(input, output) {
         }
     )
     
-    output$metadata <- renderUI({
+    output$metadata <- renderMenu({
         req(input$filein_rawdata)
         dat <- filtered_data()
-        p("# filtered pts:", dat[,.N],
-          br(),
-        "# anomalies:", dat[,sum(anomaly)])
+        sidebarMenu(
+            "# of groups:", values$total_grps, br(),
+            "pts in selected grps:", values$pts_selected_grps, br(),
+            "pts in filtered selection:", dat[,.N], br(),
+            "count: existing anomalies:", values$count_existing_anomalies, br(),
+            "# anomalies:", dat[,sum(anomaly)]
+        )
     })
+    
 }
 
 shinyApp(ui, server, options = list(port = 4686))
