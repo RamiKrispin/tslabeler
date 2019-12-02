@@ -54,8 +54,10 @@ sidebar <- dashboardSidebar(sidebarMenu(
 body <- dashboardBody(tabsetPanel(
     tabPanel(
         "Overlayed View",
-        plotOutput("tsplot", brush = "user_brush", click = "user_click"),
-        h5(""),
+        fluidRow(
+            box(plotOutput("tsplot", brush = "user_brush", click = "user_click"),
+                width = 12, solidHeader = T)
+            ),
         fluidRow(
             column(reactableOutput("outtable"),width = 8),
             column(reactableOutput("metatable"), width = 4)
@@ -208,6 +210,7 @@ server <- function(input, output) {
             dat <- filtered_data()
             
             grp_filtered <- dat[, unique(grp)]
+            tag_filtered <- dat[anomaly==1, unique(tag)]
             
             plot(
                 dat[grp == grp_filtered[1], ds],
@@ -243,11 +246,11 @@ server <- function(input, output) {
                                       anomaly == 1]
                     points(subdat[, ds],
                            subdat[, value],
-                           col = "red",
+                           col = as.numeric(as.factor(subdat$tag)),
                            pch = 19)
                 }
             }
-            if ("legend" %in% input$chkbox_plotopts)
+            if ("legend" %in% input$chkbox_plotopts){
                 legend(
                     "topleft",
                     legend = grp_filtered,
@@ -255,6 +258,15 @@ server <- function(input, output) {
                     bg = "white",
                     lwd = 2
                 )
+                legend(
+                    "topright",
+                    legend = tag_filtered,
+                    col = 1:length(tag_filtered),
+                    bg = "white",
+                    pch = 19,
+                    lwd = 0
+                )
+            }
         }, message = "Loading graph...")
     })
     
@@ -275,7 +287,15 @@ server <- function(input, output) {
     
     output$outtable <- renderReactable({
         req(input$filein_rawdata)
-        reactable(selectedPoints())
+        dat <- selectedPoints()
+        reactable(dat, 
+                  columns = list(ds = colDef("Date", format = colFormat(datetime = T)), 
+                                 grp = colDef("Group"), 
+                                 value = colDef("Value", format = colFormat(digits=3)), 
+                                 anomaly = colDef("Anomaly"), 
+                                 tag = colDef("Tag")
+                                 )
+                  )
     })
     
     output$metatable <- renderReactable({
