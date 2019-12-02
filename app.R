@@ -46,17 +46,22 @@ sidebar <- dashboardSidebar(sidebarMenu(
               placement = "right", trigger = "hover", options = NULL),
     actionButton("mark", "Mark Anomaly", icon = icon("thumb-tack")),
     hr(),
-    downloadBttn("download", label = "Download", style = "minimal", size = "s"),
-    hr(),
-    uiOutput("metadata")
+    downloadBttn("download", label = "Download", style = "minimal", size = "s")
+    # hr(),
+    # sidebarMenuOutput("verinfo")
 ))
 
 body <- dashboardBody(tabsetPanel(
     tabPanel(
         "Overlayed View",
-        plotOutput("tsplot", brush = "user_brush", click = "user_click"),
-        h3('Selection'),
-        reactableOutput("outtable")
+        fluidRow(
+            box(plotOutput("tsplot", brush = "user_brush", click = "user_click"),
+                width = 12, solidHeader = T)
+            ),
+        fluidRow(
+            column(reactableOutput("outtable"),width = 8),
+            column(reactableOutput("metatable"), width = 4)
+        )
     ),
     tabPanel(
         "Faceted View",
@@ -71,6 +76,7 @@ ui <- dashboardPage(
     skin = "black"
 )
 
+
 server <- function(input, output) {
     values <- reactiveValues()
     
@@ -79,25 +85,23 @@ server <- function(input, output) {
         if (is.null(infile))
             return(NULL)
         
-        out <- fread(
-            file = infile$datapath,
-            header = TRUE
-        )
+        out <- fread(file = infile$datapath,
+                     header = TRUE)
         
-        if(ncol(out)==3)
+        if (ncol(out) == 3)
             setnames(out, c("ds", "grp", "value"))
-        else if(ncol(out)==5)
+        else if (ncol(out) == 5)
             setnames(out, c("ds", "grp", "value", "anomaly", "tag"))
         else
             stop("Input file non-compliant")
-            
+        
         setkeyv(out, "ds")
         
         out[, ds := lubridate::fast_strptime(ds,
                                              format = "%Y-%m-%d %H:%M:%S",
                                              tz = "UTC",
                                              lt = FALSE)]
-        if(all(is.na(out[,ds])))
+        if (all(is.na(out[, ds])))
             stop("Could not parse date-time column. Format expected: %Y-%m-%d %H:%M:%S")
         
         out[, grp := as.character(grp)]
@@ -108,27 +112,33 @@ server <- function(input, output) {
                              "level-shift",
                              "variance-shift")
         
-        if(ncol(out)==3){
+        values$total_pts <- out[, .N]
+        values$total_grps <- out[, length(unique(grp))]
+        
+        if (ncol(out) == 3) {
             out[, anomaly := 0]
             out[, tag := ""]
-        } else if (ncol(out)==5) {
-            tags_in_file <- out[anomaly==1,unique(tag)]
-            custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_list)]
-            if(length(custom_tags)>0)
+            values$count_existing_anomalies <- 0
+        } else if (ncol(out) == 5) {
+            tags_in_file <- out[anomaly == 1, unique(tag)]
+            custom_tags <-
+                tags_in_file[!(tags_in_file %in% values$tag_list)]
+            if (length(custom_tags) > 0)
                 values$tag_list <- c(values$tag_list, custom_tags)
+            values$count_existing_anomalies <- out[anomaly == 1, .N]
         }
         
         values$original <- out
     })
-
+    
     output$taglist <- renderUI({
         req(input$filein_rawdata)
         prettyRadioButtons(
             inputId = "radio_taglist",
-            label = "Tags", 
+            label = "Tags",
             choices = values$tag_list,
             selected = values$tag_list[1],
-            inline = TRUE, 
+            inline = TRUE,
             status = "danger",
             fill = TRUE
         )
@@ -171,6 +181,8 @@ server <- function(input, output) {
     })
     
     filtered_data <- reactive({
+        values$pts_selected_grps <-
+            values$original[grp %in% input$picker_group, .N]
         values$original[grp %in% input$picker_group &
                             ds >= as.POSIXct(as.character(input$dateslider[1]), tz = "UTC") &
                             ds <= as.POSIXct(as.character(input$dateslider[2]), tz = "UTC")]
@@ -181,15 +193,13 @@ server <- function(input, output) {
             textInput(inputId = "textinput_customtag",
                       label = "What's your custom tag?"),
             # title = "Tag",
-            footer = tagList(
-                actionButton("btn_customtag_ok", "Add")
-            ),
+            footer = tagList(actionButton("btn_customtag_ok", "Add")),
             easyClose = TRUE
         ))
     })
     
     observeEvent(input$btn_customtag_ok, {
-        if(input$textinput_customtag != "")
+        if (input$textinput_customtag != "")
             values$tag_list <- c(values$tag_list,
                                  input$textinput_customtag)
     })
@@ -200,6 +210,7 @@ server <- function(input, output) {
             dat <- filtered_data()
             
             grp_filtered <- dat[, unique(grp)]
+            tag_filtered <- dat[anomaly==1, unique(tag)]
             
             plot(
                 dat[grp == grp_filtered[1], ds],
@@ -235,11 +246,11 @@ server <- function(input, output) {
                                       anomaly == 1]
                     points(subdat[, ds],
                            subdat[, value],
-                           col = "red",
+                           col = as.numeric(as.factor(subdat$tag)),
                            pch = 19)
                 }
             }
-            if("legend" %in% input$chkbox_plotopts)
+            if ("legend" %in% input$chkbox_plotopts){
                 legend(
                     "topleft",
                     legend = grp_filtered,
@@ -247,24 +258,68 @@ server <- function(input, output) {
                     bg = "white",
                     lwd = 2
                 )
+                legend(
+                    "topright",
+                    legend = tag_filtered,
+                    col = 1:length(tag_filtered),
+                    bg = "white",
+                    pch = 19,
+                    lwd = 0
+                )
+            }
         }, message = "Loading graph...")
     })
     
     output$tsplot_faceted <- renderPlot({
         req(input$filein_rawdata)
         dat <- filtered_data()
-        xyplot(value~ds|grp,
-               dat,
-               type = "l",
-               scales = ifelse("freey" %in% input$chkbox_plotopts, "free", "same"),
-               xlab = "Date",
-               ylab = "Value",
-               auto.key = list(columns = 5))
+        lubridate::tz(dat$ds) <- ""
+        xyplot(
+            value ~ ds | grp,
+            dat,
+            type = "l",
+            scales = ifelse("freey" %in% input$chkbox_plotopts, "free", "same"),
+            xlab = "Date",
+            ylab = "Value",
+            auto.key = list(columns = 5)
+        )
     })
-
+    
     output$outtable <- renderReactable({
         req(input$filein_rawdata)
-        reactable(selectedPoints())})
+        dat <- selectedPoints()
+        reactable(dat, 
+                  columns = list(ds = colDef("Date", format = colFormat(datetime = T)), 
+                                 grp = colDef("Group"), 
+                                 value = colDef("Value", format = colFormat(digits=3)), 
+                                 anomaly = colDef("Anomaly"), 
+                                 tag = colDef("Tag")
+                                 )
+                  )
+    })
+    
+    output$metatable <- renderReactable({
+        req(input$filein_rawdata)
+        dat <- filtered_data()
+        
+        meta <- data.table(
+            Parameter = c(
+                "Anomalies in Uploaded File",
+                "Groups (Selected/Total)",
+                "Points in Selected Groups",
+                "Points in Filtered View",
+                "Anomalies in Filtered View"
+            ),
+            Value = c(
+                values$count_existing_anomalies,
+                paste0(dat[, length(unique(grp))], "/", values$total_grps),
+                values$pts_selected_grps, 
+                dat[, .N],
+                dat[, sum(anomaly)]
+            )
+        )
+        reactable(meta)
+    })
     
     selectedPoints <- reactive({
         brushedPoints(
@@ -294,20 +349,21 @@ server <- function(input, output) {
             paste(input$filein_rawdata$name, ".csv", sep = "")
         },
         content = function(file) {
-            fwrite(x = values$original, 
-                   file = file, 
-                   row.names = FALSE,
-                   col.names = TRUE)
+            fwrite(
+                x = values$original,
+                file = file,
+                row.names = FALSE,
+                col.names = TRUE
+            )
         }
     )
     
-    output$metadata <- renderUI({
-        req(input$filein_rawdata)
-        dat <- filtered_data()
-        p("# filtered pts:", dat[,.N],
-          br(),
-        "# anomalies:", dat[,sum(anomaly)])
-    })
+    # output$verinfo <- renderMenu({
+    #     sidebarMenu(
+    #         "\tVer", 0.1
+    #     )
+    # })
+    
 }
 
 shinyApp(ui, server, options = list(port = 4686))
