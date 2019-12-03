@@ -109,7 +109,7 @@ server <- function(input, output) {
         out[, grp := as.character(grp)]
         out[, value := as.numeric(value)]
         
-        values$tag_list <- c("spikes",
+        values$tag_list <- c("spike",
                              "trend-change",
                              "level-shift",
                              "variance-shift")
@@ -407,19 +407,19 @@ server <- function(input, output) {
     })
     
     observeEvent(input$mark, {
-        values$new <- values$original
         seldat <- selectedPoints_zoomed()
         if(nrow(seldat)==0)
             seldat <- selectedPoints()
-        for (i in 1:nrow(seldat)) {
-            values$new[ds == seldat[i, ds] &
-                           grp == seldat[i, grp],
-                       anomaly := 1]
-            values$new[ds == seldat[i, ds] &
-                           grp == seldat[i, grp],
-                       tag := input$radio_taglist]
-        }
-        values$original <- values$new
+
+        seldat[,anomaly := 1]
+        seldat[,tag := input$radio_taglist]
+        
+        unmodified <- values$original[!seldat[,.(ds,grp,anomaly,tag)],on=c("ds","grp")]
+        new <- rbindlist(list(unmodified, seldat))
+        
+        setkeyv(new, c("ds"))
+        
+        values$original <- new
         reactive_flag(runif(n = 1))
     })
     
