@@ -55,9 +55,10 @@ body <- dashboardBody(tabsetPanel(
     tabPanel(
         "Overlayed View",
         fluidRow(
-            box(plotOutput("tsplot", brush = "user_brush", click = "user_click"),
-                width = 12, solidHeader = T)
-            ),
+            box(plotOutput("tsplot", brush = "user_brush_zoomed"),
+                plotOutput("tsplot_zoomed", brush = "user_brush"),
+                width = 12, solidHeader = T),
+        ),
         fluidRow(
             column(reactableOutput("outtable"),width = 8),
             column(reactableOutput("metatable"), width = 4)
@@ -79,6 +80,7 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
     values <- reactiveValues()
+    reactive_flag <- reactiveVal(0)  
     
     observeEvent(input$filein_rawdata, {
         infile <- input$filein_rawdata
@@ -181,6 +183,7 @@ server <- function(input, output) {
     })
     
     filtered_data <- reactive({
+        reactive_flag()
         values$pts_selected_grps <-
             values$original[grp %in% input$picker_group, .N]
         values$original[grp %in% input$picker_group &
@@ -192,7 +195,6 @@ server <- function(input, output) {
         showModal(modalDialog(
             textInput(inputId = "textinput_customtag",
                       label = "What's your custom tag?"),
-            # title = "Tag",
             footer = tagList(actionButton("btn_customtag_ok", "Add")),
             easyClose = TRUE
         ))
@@ -216,9 +218,6 @@ server <- function(input, output) {
                 dat[grp == grp_filtered[1], ds],
                 dat[grp == grp_filtered[1], value],
                 type = "l",
-                col = "red",
-                lty = 1,
-                lwd = 2,
                 ylim = c(min(dat$value, na.rm = T),
                          max(dat$value, na.rm = T)),
                 xlab = "Date",
@@ -239,7 +238,7 @@ server <- function(input, output) {
                     type = "l",
                     col = i,
                     lty = 1,
-                    lwd = 2
+                    lwd = 1.5
                 )
                 if ("anomaly" %in% input$chkbox_plotopts) {
                     subdat <- dat[grp == grp_filtered[i] &
@@ -258,17 +257,83 @@ server <- function(input, output) {
                     bg = "white",
                     lwd = 2
                 )
-                legend(
-                    "topright",
-                    legend = tag_filtered,
-                    col = 1:length(tag_filtered),
-                    bg = "white",
-                    pch = 19,
-                    lwd = 0
-                )
+                if(length(tag_filtered)>0)
+                    legend(
+                        "topright",
+                        legend = tag_filtered,
+                        col = 1:length(tag_filtered),
+                        bg = "white",
+                        pch = 19,
+                        lwd = 0
+                    )
             }
         }, message = "Loading graph...")
     })
+    
+    output$tsplot_zoomed <- renderPlot({
+        req(input$user_brush_zoomed)
+        withProgress({
+            dat <- selectedPoints()
+            dat[anomaly==0, tag:=""]
+            grp_filtered <- dat[, unique(grp)]
+            tag_filtered <- dat[anomaly==1, unique(tag)]
+            
+            plot(
+                dat[grp == grp_filtered[1], ds],
+                dat[grp == grp_filtered[1], value],
+                type = "l",
+                ylim = c(min(dat$value, na.rm = T),
+                         max(dat$value, na.rm = T)),
+                xlab = "Date",
+                ylab = "Value"
+            )
+            if ("anomaly" %in% input$chkbox_plotopts) {
+                subdat <- dat[grp == grp_filtered[1] &
+                                  anomaly == 1]
+                points(subdat[, ds],
+                       subdat[, value],
+                       col = "red",
+                       pch = 19)
+            }
+            for (i in 1:length(grp_filtered)) {
+                lines(
+                    x = dat[grp == grp_filtered[i], ds],
+                    y = dat[grp == grp_filtered[i], value],
+                    type = "l",
+                    col = i,
+                    lty = 1,
+                    lwd = 1.5
+                )
+                if ("anomaly" %in% input$chkbox_plotopts) {
+                    subdat <- dat[grp == grp_filtered[i] &
+                                      anomaly == 1]
+                    points(subdat[, ds],
+                           subdat[, value],
+                           col = as.numeric(as.factor(subdat$tag)),
+                           pch = 19)
+                }
+            }
+            if ("legend" %in% input$chkbox_plotopts){
+                legend(
+                    "topleft",
+                    legend = grp_filtered,
+                    col = 1:length(grp_filtered),
+                    bg = "white",
+                    lwd = 2
+                )
+                if(length(tag_filtered)>0)
+                    legend(
+                        "topright",
+                        legend = tag_filtered,
+                        col = 1:length(tag_filtered),
+                        bg = "white",
+                        pch = 19,
+                        lwd = 0
+                    )
+            }
+        }, message = "Loading graph...")
+    })
+    
     
     output$tsplot_faceted <- renderPlot({
         req(input$filein_rawdata)
@@ -287,7 +352,9 @@ server <- function(input, output) {
     
     output$outtable <- renderReactable({
         req(input$filein_rawdata)
-        dat <- selectedPoints()
+        dat <- selectedPoints_zoomed()
+        if(nrow(dat)==0)
+            dat <- selectedPoints()
         reactable(dat, 
                   columns = list(ds = colDef("Date", format = colFormat(datetime = T)), 
                                  grp = colDef("Group"), 
@@ -324,6 +391,15 @@ server <- function(input, output) {
     selectedPoints <- reactive({
         brushedPoints(
             df = filtered_data(),
+            brush = input$user_brush_zoomed,
+            xvar = "ds",
+            yvar = "value"
+        )
+    })
+    
+    selectedPoints_zoomed <- reactive({
+        brushedPoints(
+            df = selectedPoints(),
             brush = input$user_brush,
             xvar = "ds",
             yvar = "value"
@@ -332,7 +408,9 @@ server <- function(input, output) {
     
     observeEvent(input$mark, {
         values$new <- values$original
-        seldat <- selectedPoints()
+        seldat <- selectedPoints_zoomed()
+        if(nrow(seldat)==0)
+            seldat <- selectedPoints()
         for (i in 1:nrow(seldat)) {
             values$new[ds == seldat[i, ds] &
                            grp == seldat[i, grp],
@@ -342,6 +420,7 @@ server <- function(input, output) {
                        tag := input$radio_taglist]
         }
         values$original <- values$new
+        reactive_flag(runif(n = 1))
     })
     
     output$download <- downloadHandler(
