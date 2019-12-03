@@ -1,7 +1,8 @@
 suppressMessages(library(drake))
 suppressMessages(library(data.table))
 suppressMessages(library(lattice))
-suppressMessages(library(ggplot2))
+# suppressMessages(library(ggplot2))
+suppressMessages(library(sparkline))
 suppressMessages(library(shiny))
 suppressMessages(library(shinyBS))
 suppressMessages(library(shinyWidgets))
@@ -61,8 +62,10 @@ body <- dashboardBody(tabsetPanel(
         ),
         fluidRow(
             column(reactableOutput("outtable"),width = 8),
-            column(reactableOutput("metatable"), width = 4)
-        )
+            column(reactableOutput("metatable"),
+                   plotOutput("plot_anomalybar", height = "200px"),
+                   width = 4)
+        ),
     ),
     tabPanel(
         "Faceted View",
@@ -112,7 +115,8 @@ server <- function(input, output) {
         values$tag_list <- c("spike",
                              "trend-change",
                              "level-shift",
-                             "variance-shift")
+                             "variance-shift",
+                             "")
         
         values$total_pts <- out[, .N]
         values$total_grps <- out[, length(unique(grp))]
@@ -126,7 +130,9 @@ server <- function(input, output) {
             custom_tags <-
                 tags_in_file[!(tags_in_file %in% values$tag_list)]
             if (length(custom_tags) > 0)
-                values$tag_list <- c(values$tag_list, custom_tags)
+                values$tag_list <- c(values$tag_list[values$tag_list!=""], 
+                                     custom_tags,
+                                     "")
             values$count_existing_anomalies <- out[anomaly == 1, .N]
         }
         
@@ -135,10 +141,13 @@ server <- function(input, output) {
     
     output$taglist <- renderUI({
         req(input$filein_rawdata)
+        choice_names <- values$tag_list
+        choice_names[choice_names==""] <- "remove tag"
         prettyRadioButtons(
             inputId = "radio_taglist",
             label = "Tags",
-            choices = values$tag_list,
+            choiceNames = choice_names,
+            choiceValues = values$tag_list,
             selected = values$tag_list[1],
             inline = TRUE,
             status = "danger",
@@ -223,14 +232,6 @@ server <- function(input, output) {
                 xlab = "Date",
                 ylab = "Value"
             )
-            if ("anomaly" %in% input$chkbox_plotopts) {
-                subdat <- dat[grp == grp_filtered[1] &
-                                  anomaly == 1]
-                points(subdat[, ds],
-                       subdat[, value],
-                       col = "red",
-                       pch = 19)
-            }
             for (i in 1:length(grp_filtered)) {
                 lines(
                     x = dat[grp == grp_filtered[i], ds],
@@ -287,14 +288,6 @@ server <- function(input, output) {
                 xlab = "Date",
                 ylab = "Value"
             )
-            if ("anomaly" %in% input$chkbox_plotopts) {
-                subdat <- dat[grp == grp_filtered[1] &
-                                  anomaly == 1]
-                points(subdat[, ds],
-                       subdat[, value],
-                       col = "red",
-                       pch = 19)
-            }
             for (i in 1:length(grp_filtered)) {
                 lines(
                     x = dat[grp == grp_filtered[i], ds],
@@ -333,7 +326,6 @@ server <- function(input, output) {
             }
         }, message = "Loading graph...")
     })
-    
     
     output$tsplot_faceted <- renderPlot({
         req(input$filein_rawdata)
@@ -411,7 +403,7 @@ server <- function(input, output) {
         if(nrow(seldat)==0)
             seldat <- selectedPoints()
 
-        seldat[,anomaly := 1]
+        seldat[,anomaly := ifelse(input$radio_taglist=="",0,1)]
         seldat[,tag := input$radio_taglist]
         
         unmodified <- values$original[!seldat[,.(ds,grp,anomaly,tag)],on=c("ds","grp")]
@@ -436,6 +428,21 @@ server <- function(input, output) {
             )
         }
     )
+    
+    output$plot_anomalybar <- renderPlot({
+        req(input$filein_rawdata)
+        dat <- filtered_data()
+        dat <- dat[anomaly==1, .(total=sum(anomaly)), tag]
+        if(nrow(dat)>0)
+            barchart(tag~total,dat,xlab="",panel=function(...) { 
+                args <- list(...)
+                panel.barchart(...)
+                panel.text(3, args$y, args$x, offset=0)
+            }, scales=list(x=list(at=NULL),cex=1),
+            col=brewer.pal(6,"Blues"),
+            xlim=c(0,max(5,max(dat$total)+5)),
+            par.settings = list(axis.line = list(col = "transparent")))
+    })
     
     # output$verinfo <- renderMenu({
     #     sidebarMenu(
