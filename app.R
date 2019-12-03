@@ -1,7 +1,6 @@
 suppressMessages(library(drake))
 suppressMessages(library(data.table))
 suppressMessages(library(lattice))
-# suppressMessages(library(ggplot2))
 suppressMessages(library(sparkline))
 suppressMessages(library(shiny))
 suppressMessages(library(shinyBS))
@@ -9,7 +8,7 @@ suppressMessages(library(shinyWidgets))
 suppressMessages(library(shinydashboard))
 suppressMessages(library(reactable))
 
-options(shiny.maxRequestSize = 50 * 1024 ^ 2)
+options(shiny.maxRequestSize = 100 * 1024 ^ 2)
 
 sidebar <- dashboardSidebar(sidebarMenu(
     fileInput(
@@ -437,7 +436,7 @@ server <- function(input, output) {
             barchart(tag~total,dat,xlab="",panel=function(...) { 
                 args <- list(...)
                 panel.barchart(...)
-                panel.text(3, args$y, args$x, offset=0)
+                panel.text(3, args$y, args$x, offset=0, pos=4)
             }, scales=list(x=list(at=NULL),cex=1),
             col=brewer.pal(6,"Blues"),
             xlim=c(0,max(5,max(dat$total)+5)),
