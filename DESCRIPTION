@@ -1,14 +1,13 @@
 Package: tslabeler
-Title: What the Package Does (One Line, Title Case)
+Title: Labeling Tool For Time Series Data
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Rahul",
+           family = "Sangole",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: What license it uses
+           email = "rahul.sangole@gmail.com")
+Description: Shiny app to allow labeling of large time series data. The intent of labeling could be preprocessing data for time series, classification or anomaly detection modeling.
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Imports: 
@@ -20,3 +19,4 @@ Imports:
     shinydashboard,
     reactable,
     RColorBrewer
+RoxygenNote: 6.1.1
