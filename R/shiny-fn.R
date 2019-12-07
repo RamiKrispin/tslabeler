@@ -11,4 +11,4 @@ label_ts <- function() {
                 shiny::runApp(system.file(package = "tslabeler"), 
                               launch.browser = TRUE)
         )
-        }
+}
