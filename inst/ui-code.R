@@ -1,8 +1,7 @@
 # File Import  ---------------------------------------------------------------
 
-input_data_source_import <- function(){
-        shiny::fluidRow(
-                shinydashboard::box(
+input_data_importfile_ui <- function() {
+        shinydashboard::box(
                 shiny::fileInput(
                         inputId = 'filein_rawdata',
                         label = 'Choose CSV',
@@ -10,20 +9,20 @@ input_data_source_import <- function(){
                         accept = c(
                                 'text/csv',
                                 'text/comma-separated-values,text/plain',
-                                '.csv' 
+                                '.csv'
                         )
                 ),
-                shinyWidgets::awesomeCheckbox(
-                        inputId = "filein_csv_header",
-                        label = "Header",
-                        value = TRUE
+                shinyWidgets::prettyCheckboxGroup(
+                        inputId = "chkbox_inputfileopts",
+                        label = "Input file options",
+                        choiceNames = c("Has Header?",
+                                        "Has Groups?"),
+                        choiceValues = c("header", "groups"),
+                        selected = c("header", "groups"),
+                        status = "info",
+                        inline = TRUE
                 ),
-                shinyWidgets::awesomeCheckbox(
-                        inputId = "filein_hasgroup",
-                        label = "Groups",
-                        value = TRUE
-                ),
-                shiny::radioButtons(
+                shinyWidgets::prettyRadioButtons(
                         inputId = 'filein_sep',
                         label = 'Separator',
                         choices = c(
@@ -31,9 +30,10 @@ input_data_source_import <- function(){
                                 Semicolon = ';',
                                 Tab = '\t'
                         ),
-                        selected = ','
+                        selected = ',',
+                        inline = TRUE
                 ),
-                shiny::radioButtons(
+                shinyWidgets::prettyRadioButtons(
                         inputId = 'filein_quote',
                         label = 'Quote',
                         choices = c(
@@ -41,16 +41,22 @@ input_data_source_import <- function(){
                                 'Double Quote' = '"',
                                 'Single Quote' = "'"
                         ),
-                        selected = '"'
+                        selected = '"',
+                        inline = TRUE
                 ),
-                solidHeader = TRUE, 
+                solidHeader = TRUE,
                 width = 12
         )
-        )
+        
 }
 
-# input_data_source_df <- function(){
-#             selectInput("df_to_load", "Select Data Frame",
-#                         choices = prev_table$inputs_list)
-# }
-# 
+input_data_selectdataframe_ui <- function() {
+        shinydashboard::box(
+                shiny::selectInput(
+                        inputId = "df_to_load",
+                        label = "Select Data Frame",
+                        choices = 1:4
+                ),
+                solidHeader = TRUE
+        )
+}
