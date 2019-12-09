@@ -50,23 +50,40 @@ ui <- shinydashboard::dashboardPage(
 
 # Server ------------------------------------------------------------------
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   # Instantiate values
   
   values <- shiny::reactiveValues()
   reactive_flag <- shiny::reactiveVal(0)
-  # output$user_env_data <- {
-  #   all_vars <- ls(envir = .GlobalEnv)
-  #   var_class <- sapply(all_vars, class)
-  #   var_class
-  # }
+
+  df_list <- names(which(sapply(.GlobalEnv, base::is.data.frame)))
+  df_list <- ifelse(length(df_list) == 0,
+                    list("No dataframes in memory"),
+                    list(df_list))
+  dt_list <- names(which(sapply(.GlobalEnv, data.table::is.data.table)))
+  dt_list <- ifelse(length(dt_list) == 0,
+                    list("No datatables in memory"),
+                    list(dt_list))
   
+  env_tabs <- shiny::reactiveValues(existing_tables = 
+                                      list(Dataframes = df_list,
+                                           Datatables = dt_list))
+
   # Input Data UI
   
   output$input_ui <- shiny::renderUI({
     if (input$data_source == "data_frame"){
-      input_data_selectdataframe_ui()
+      print(env_tabs$existing_tables)
+      shinydashboard::box(
+        shiny::selectInput(
+          inputId = "df_to_load",
+          label = "Select variable",
+          choices = env_tabs$existing_tables
+        ),
+        solidHeader = TRUE
+      )
+      # input_data_selectdataframe_ui()
     } else if (input$data_source == "import"){
       input_data_importfile_ui()
     }
@@ -206,186 +223,147 @@ server <- function(input, output) {
     )
   })
 
-  # output$grp_list <- shiny::renderUI({
-  #   shiny::req(input$filein_rawdata)
-  #   shinyWidgets::pickerInput(
-  #     inputId = "picker_group",
-  #     label = "Group",
-  #     choices = values$original[, unique(grp)],
-  #     selected = values$original[, unique(grp)][1],
-  #     options = list(`live-search` = TRUE,
-  #                    `actions-box` = TRUE),
-  #     multiple = TRUE
-  #   )
-  # })
-  # 
-  # output$daterange <- shiny::renderUI({
-  #   shiny::req(input$filein_rawdata)
-  #   shiny::dateRangeInput(
-  #     inputId = "daterange",
-  #     label = "Date range",
-  #     start = values$original[, min(ds)],
-  #     end = values$original[, max(ds)]
-  #   )
-  # })
-  # 
-  # output$taglist <- shiny::renderUI({
-  #   shiny::req(input$filein_rawdata)
-  #   choice_names <- values$tag_values
-  #   choice_names[choice_names == ""] <- "remove tag"
-  #   shinyWidgets::prettyRadioButtons(
-  #     inputId = "radio_taglist",
-  #     label = "Tags",
-  #     choiceNames = choice_names,
-  #     choiceValues = values$tag_values,
-  #     selected = values$tag_values[1],
-  #     inline = TRUE,
-  #     status = "danger",
-  #     fill = TRUE
-  #   )
-  # })
-  # 
-  # filtered_data <- shiny::reactive({
-  #   reactive_flag()
-  #   values$pts_selected_grps <-
-  #     values$original[grp %in% input$picker_group, .N]
-  #   values$original[grp %in% input$picker_group &
-  #                     ds >= as.POSIXct(as.character(input$daterange[1]), tz = "UTC") &
-  #                     ds <= as.POSIXct(as.character(input$daterange[2]), tz = "UTC")]
-  # })
-  # 
-  # shiny::observeEvent(input$btn_newtag, {
-  #   shiny::showModal(
-  #     shiny::modalDialog(
-  #       shiny::textInput(inputId = "textinput_customtag",
-  #                        label = "What's your custom tag?"),
-  #       footer = shiny::tagList(shiny::actionButton("btn_customtag_ok", "Add")),
-  #       easyClose = TRUE
-  #     )
-  #   )
-  # })
-  # 
-  # shiny::observeEvent(input$btn_customtag_ok, {
-  #   if (input$textinput_customtag != "") {
-  #     values$tag_values <- c(values$tag_values,
-  #                          input$textinput_customtag)
-  #   }
-  # })
-  # 
-  # output$tsplot <- shiny::renderPlot({
-  #   shiny::req(input$filein_rawdata)
-  #   shiny::withProgress({
-  #     dat <- filtered_data()
-  #     
-  #     grp_filtered <- dat[, unique(grp)]
-  #     tag_filtered <- dat[anomaly == 1, unique(tag)]
-  #     
-  #     plot(
-  #       dat[grp == grp_filtered[1], ds],
-  #       dat[grp == grp_filtered[1], value],
-  #       type = "l",
-  #       ylim = c(min(dat$value, na.rm = T),
-  #                max(dat$value, na.rm = T)),
-  #       xlab = "Date",
-  #       ylab = "Value"
-  #     )
-  #     for (i in 1:length(grp_filtered)) {
-  #       lines(
-  #         x = dat[grp == grp_filtered[i], ds],
-  #         y = dat[grp == grp_filtered[i], value],
-  #         type = "l",
-  #         col = i,
-  #         lty = 1,
-  #         lwd = 1.5
-  #       )
-  #       if ("anomaly" %in% input$chkbox_plotopts) {
-  #         subdat <- dat[grp == grp_filtered[i] &
-  #                         anomaly == 1]
-  #         points(subdat[, ds],
-  #                subdat[, value],
-  #                col = as.numeric(as.factor(subdat$tag)),
-  #                pch = 19)
-  #       }
-  #     }
-  #     if ("legend" %in% input$chkbox_plotopts) {
-  #       legend(
-  #         "topleft",
-  #         legend = grp_filtered,
-  #         col = 1:length(grp_filtered),
-  #         bg = "white",
-  #         lwd = 2
-  #       )
-  #       if (length(tag_filtered) > 0) {
-  #         legend(
-  #           "topright",
-  #           legend = tag_filtered,
-  #           col = 1:length(tag_filtered),
-  #           bg = "white",
-  #           pch = 19,
-  #           lwd = 0
-  #         )
-  #       }
-  #     }
-  #   }, message = "Loading graph...")
-  # })
-  # 
-  # output$tsplot_zoomed <- shiny::renderPlot({
-  #   shiny::req(input$user_brush_zoomed)
-  #   shiny::withProgress({
-  #     dat <- selectedPoints()
-  #     dat[anomaly == 0, tag := ""]
-  #     grp_filtered <- dat[, unique(grp)]
-  #     tag_filtered <- dat[anomaly == 1, unique(tag)]
-  #     
-  #     plot(
-  #       dat[grp == grp_filtered[1], ds],
-  #       dat[grp == grp_filtered[1], value],
-  #       type = "l",
-  #       ylim = c(min(dat$value, na.rm = T),
-  #                max(dat$value, na.rm = T)),
-  #       xlab = "Date",
-  #       ylab = "Value"
-  #     )
-  #     for (i in 1:length(grp_filtered)) {
-  #       lines(
-  #         x = dat[grp == grp_filtered[i], ds],
-  #         y = dat[grp == grp_filtered[i], value],
-  #         type = "l",
-  #         col = i,
-  #         lty = 1,
-  #         lwd = 1.5
-  #       )
-  #       if ("anomaly" %in% input$chkbox_plotopts) {
-  #         subdat <- dat[grp == grp_filtered[i] &
-  #                         anomaly == 1]
-  #         points(subdat[, ds],
-  #                subdat[, value],
-  #                col = as.numeric(as.factor(subdat$tag)),
-  #                pch = 19)
-  #       }
-  #     }
-  #     if ("legend" %in% input$chkbox_plotopts) {
-  #       legend(
-  #         "topleft",
-  #         legend = grp_filtered,
-  #         col = 1:length(grp_filtered),
-  #         bg = "white",
-  #         lwd = 2
-  #       )
-  #       if (length(tag_filtered) > 0) {
-  #         legend(
-  #           "topright",
-  #           legend = tag_filtered,
-  #           col = 1:length(tag_filtered),
-  #           bg = "white",
-  #           pch = 19,
-  #           lwd = 0
-  #         )
-  #       }
-  #     }
-  #   }, message = "Loading graph...")
-  # })
-  # 
+  filtered_data <- shiny::reactive({
+    reactive_flag()
+    values$pts_selected_grps <-
+      values$original[grp %in% input$picker_group, .N]
+    values$original[grp %in% input$picker_group &
+                      ds >= as.POSIXct(as.character(input$daterange[1]), tz = "UTC") &
+                      ds <= as.POSIXct(as.character(input$daterange[2]), tz = "UTC")]
+  })
+
+  shiny::observeEvent(input$btn_newtag, {
+    shiny::showModal(
+      shiny::modalDialog(
+        shiny::textInput(inputId = "textinput_customtag",
+                         label = "What's your custom tag?"),
+        footer = shiny::tagList(shiny::actionButton("btn_customtag_ok", "Add")),
+        easyClose = TRUE
+      )
+    )
+  })
+
+  shiny::observeEvent(input$btn_customtag_ok, {
+    if (input$textinput_customtag != "") {
+      values$tag_values <- c(values$tag_values,
+                           input$textinput_customtag)
+    }
+  })
+
+  output$tsplot <- shiny::renderPlot({
+    shiny::req(input$filein_rawdata)
+    shiny::withProgress({
+      dat <- filtered_data()
+
+      grp_filtered <- dat[, unique(grp)]
+      tag_filtered <- dat[anomaly == 1, unique(tag)]
+
+      plot(
+        dat[grp == grp_filtered[1], ds],
+        dat[grp == grp_filtered[1], value],
+        type = "l",
+        ylim = c(min(dat$value, na.rm = T),
+                 max(dat$value, na.rm = T)),
+        xlab = "Date",
+        ylab = "Value"
+      )
+      for (i in 1:length(grp_filtered)) {
+        lines(
+          x = dat[grp == grp_filtered[i], ds],
+          y = dat[grp == grp_filtered[i], value],
+          type = "l",
+          col = i,
+          lty = 1,
+          lwd = 1.5
+        )
+        if ("anomaly" %in% input$chkbox_plotopts) {
+          subdat <- dat[grp == grp_filtered[i] &
+                          anomaly == 1]
+          points(subdat[, ds],
+                 subdat[, value],
+                 col = as.numeric(as.factor(subdat$tag)),
+                 pch = 19)
+        }
+      }
+      if ("legend" %in% input$chkbox_plotopts) {
+        legend(
+          "topleft",
+          legend = grp_filtered,
+          col = 1:length(grp_filtered),
+          bg = "white",
+          lwd = 2
+        )
+        if (length(tag_filtered) > 0) {
+          legend(
+            "topright",
+            legend = tag_filtered,
+            col = 1:length(tag_filtered),
+            bg = "white",
+            pch = 19,
+            lwd = 0
+          )
+        }
+      }
+    }, message = "Loading graph...")
+  })
+
+  output$tsplot_zoomed <- shiny::renderPlot({
+    shiny::req(input$user_brush_zoomed)
+    shiny::withProgress({
+      dat <- selectedPoints()
+      dat[anomaly == 0, tag := ""]
+      grp_filtered <- dat[, unique(grp)]
+      tag_filtered <- dat[anomaly == 1, unique(tag)]
+
+      plot(
+        dat[grp == grp_filtered[1], ds],
+        dat[grp == grp_filtered[1], value],
+        type = "l",
+        ylim = c(min(dat$value, na.rm = T),
+                 max(dat$value, na.rm = T)),
+        xlab = "Date",
+        ylab = "Value"
+      )
+      for (i in 1:length(grp_filtered)) {
+        lines(
+          x = dat[grp == grp_filtered[i], ds],
+          y = dat[grp == grp_filtered[i], value],
+          type = "l",
+          col = i,
+          lty = 1,
+          lwd = 1.5
+        )
+        if ("anomaly" %in% input$chkbox_plotopts) {
+          subdat <- dat[grp == grp_filtered[i] &
+                          anomaly == 1]
+          points(subdat[, ds],
+                 subdat[, value],
+                 col = as.numeric(as.factor(subdat$tag)),
+                 pch = 19)
+        }
+      }
+      if ("legend" %in% input$chkbox_plotopts) {
+        legend(
+          "topleft",
+          legend = grp_filtered,
+          col = 1:length(grp_filtered),
+          bg = "white",
+          lwd = 2
+        )
+        if (length(tag_filtered) > 0) {
+          legend(
+            "topright",
+            legend = tag_filtered,
+            col = 1:length(tag_filtered),
+            bg = "white",
+            pch = 19,
+            lwd = 0
+          )
+        }
+      }
+    }, message = "Loading graph...")
+  })
+
   # output$tsplot_faceted <- shiny::renderPlot({
   #   shiny::req(input$filein_rawdata)
   #   dat <- filtered_data()
@@ -400,85 +378,85 @@ server <- function(input, output) {
   #     auto.key = list(columns = 5)
   #   )
   # })
-  # 
-  # output$outtable <- reactable::renderReactable({
-  #   shiny::req(input$filein_rawdata)
-  #   dat <- selectedPoints_zoomed()
-  #   if (nrow(dat) == 0) {
-  #     dat <- selectedPoints()
-  #   }
-  #   reactable::reactable(
-  #     dat,
-  #     columns = list(
-  #       ds = reactable::colDef("Date", format = reactable::colFormat(datetime = T)),
-  #       grp = reactable::colDef("Group"),
-  #       value = reactable::colDef("Value", format = reactable::colFormat(digits = 3)),
-  #       anomaly = reactable::colDef("Anomaly"),
-  #       tag = reactable::colDef("Tag")
-  #     )
-  #   )
-  # })
-  # 
-  # output$metatable <- reactable::renderReactable({
-  #   shiny::req(input$filein_rawdata)
-  #   dat <- filtered_data()
-  #   
-  #   meta <- data.table::data.table(
-  #     Parameter = c(
-  #       "Anomalies in Uploaded File",
-  #       "Groups (Selected/Total)",
-  #       "Points in Selected Groups",
-  #       "Points in Filtered View",
-  #       "Anomalies in Filtered View"
-  #     ),
-  #     Value = c(
-  #       values$count_existing_anomalies,
-  #       paste0(dat[, length(unique(grp))], "/", values$total_grps),
-  #       values$pts_selected_grps,
-  #       dat[, .N],
-  #       dat[, sum(anomaly)]
-  #     )
-  #   )
-  #   reactable::reactable(meta)
-  # })
-  # 
-  # selectedPoints <- shiny::reactive({
-  #   shiny::brushedPoints(
-  #     df = filtered_data(),
-  #     brush = input$user_brush_zoomed,
-  #     xvar = "ds",
-  #     yvar = "value"
-  #   )
-  # })
-  # 
-  # selectedPoints_zoomed <- shiny::reactive({
-  #   shiny::brushedPoints(
-  #     df = selectedPoints(),
-  #     brush = input$user_brush,
-  #     xvar = "ds",
-  #     yvar = "value"
-  #   )
-  # })
-  # 
-  # shiny::observeEvent(input$mark, {
-  #   seldat <- selectedPoints_zoomed()
-  #   if (nrow(seldat) == 0) {
-  #     seldat <- selectedPoints()
-  #   }
-  #   
-  #   seldat[, anomaly := ifelse(input$radio_taglist == "", 0, 1)]
-  #   seldat[, tag := input$radio_taglist]
-  #   
-  #   unmodified <-
-  #     values$original[!seldat[, .(ds, grp, anomaly, tag)], on = c("ds", "grp")]
-  #   new <- data.table::rbindlist(list(unmodified, seldat))
-  #   
-  #   data.table::setkeyv(new, c("ds"))
-  #   
-  #   values$original <- new
-  #   reactive_flag(runif(n = 1))
-  # })
-  # 
+
+  output$outtable <- reactable::renderReactable({
+    shiny::req(input$filein_rawdata)
+    dat <- selectedPoints_zoomed()
+    if (nrow(dat) == 0) {
+      dat <- selectedPoints()
+    }
+    reactable::reactable(
+      dat,
+      columns = list(
+        ds = reactable::colDef("Date", format = reactable::colFormat(datetime = T)),
+        grp = reactable::colDef("Group"),
+        value = reactable::colDef("Value", format = reactable::colFormat(digits = 3)),
+        anomaly = reactable::colDef("Anomaly"),
+        tag = reactable::colDef("Tag")
+      )
+    )
+  })
+
+  output$metatable <- reactable::renderReactable({
+    shiny::req(input$filein_rawdata)
+    dat <- filtered_data()
+
+    meta <- data.table::data.table(
+      Parameter = c(
+        "Anomalies in Uploaded File",
+        "Groups (Selected/Total)",
+        "Points in Selected Groups",
+        "Points in Filtered View",
+        "Anomalies in Filtered View"
+      ),
+      Value = c(
+        values$count_existing_anomalies,
+        paste0(dat[, length(unique(grp))], "/", values$total_grps),
+        values$pts_selected_grps,
+        dat[, .N],
+        dat[, sum(anomaly)]
+      )
+    )
+    reactable::reactable(meta)
+  })
+
+  selectedPoints <- shiny::reactive({
+    shiny::brushedPoints(
+      df = filtered_data(),
+      brush = input$user_brush_zoomed,
+      xvar = "ds",
+      yvar = "value"
+    )
+  })
+
+  selectedPoints_zoomed <- shiny::reactive({
+    shiny::brushedPoints(
+      df = selectedPoints(),
+      brush = input$user_brush,
+      xvar = "ds",
+      yvar = "value"
+    )
+  })
+
+  shiny::observeEvent(input$mark, {
+    seldat <- selectedPoints_zoomed()
+    if (nrow(seldat) == 0) {
+      seldat <- selectedPoints()
+    }
+
+    seldat[, anomaly := ifelse(input$radio_taglist == "", 0, 1)]
+    seldat[, tag := input$radio_taglist]
+
+    unmodified <-
+      values$original[!seldat[, .(ds, grp, anomaly, tag)], on = c("ds", "grp")]
+    new <- data.table::rbindlist(list(unmodified, seldat))
+
+    data.table::setkeyv(new, c("ds"))
+
+    values$original <- new
+    reactive_flag(runif(n = 1))
+  })
+
   # output$download <- shiny::downloadHandler(
   #   filename = function() {
   #     paste(input$filein_rawdata$name, ".csv", sep = "")
@@ -492,28 +470,28 @@ server <- function(input, output) {
   #     )
   #   }
   # )
-  # 
-  # output$plot_anomalybar <- shiny::renderPlot({
-  #   shiny::req(input$filein_rawdata)
-  #   dat <- filtered_data()
-  #   dat <- dat[anomaly == 1, .(total = sum(anomaly)), tag]
-  #   if (nrow(dat) > 0) {
-  #     lattice::barchart(
-  #       tag ~ total,
-  #       dat,
-  #       xlab = "",
-  #       panel = function(...) {
-  #         args <- list(...)
-  #         lattice::panel.barchart(...)
-  #         lattice::panel.text(3, args$y, args$x, offset = 0, pos = 4)
-  #       },
-  #       scales = list(x = list(at = NULL), cex = 1),
-  #       col = RColorBrewer::brewer.pal(6, "Blues"),
-  #       xlim = c(0, max(5, max(dat$total) + 5)),
-  #       par.settings = list(axis.line = list(col = "transparent"))
-  #     )
-  #   }
-  # })
+
+  output$plot_anomalybar <- shiny::renderPlot({
+    shiny::req(input$filein_rawdata)
+    dat <- filtered_data()
+    dat <- dat[anomaly == 1, .(total = sum(anomaly)), tag]
+    if (nrow(dat) > 0) {
+      lattice::barchart(
+        tag ~ total,
+        dat,
+        xlab = "",
+        panel = function(...) {
+          args <- list(...)
+          lattice::panel.barchart(...)
+          lattice::panel.text(3, args$y, args$x, offset = 0, pos = 4)
+        },
+        scales = list(x = list(at = NULL), cex = 1),
+        col = RColorBrewer::brewer.pal(6, "Blues"),
+        xlim = c(0, max(5, max(dat$total) + 5)),
+        par.settings = list(axis.line = list(col = "transparent"))
+      )
+    }
+  })
   
   # output$verinfo <- renderMenu({
   #     sidebarMenu(

@@ -54,8 +54,8 @@ input_data_selectdataframe_ui <- function() {
         shinydashboard::box(
                 shiny::selectInput(
                         inputId = "df_to_load",
-                        label = "Select Data Frame",
-                        choices = 1:4
+                        label = "Select variable",
+                        choices = env_tabs$existing_tables
                 ),
                 solidHeader = TRUE
         )
