@@ -57,24 +57,23 @@ server <- function(input, output, session) {
   values <- shiny::reactiveValues()
   reactive_flag <- shiny::reactiveVal(0)
 
-  df_list <- names(which(sapply(.GlobalEnv, base::is.data.frame)))
-  df_list <- ifelse(length(df_list) == 0,
-                    list("No dataframes in memory"),
-                    list(df_list))
+  # df_list <- names(which(sapply(.GlobalEnv, base::is.data.frame)))
+  # df_list <- ifelse(length(df_list) == 0,
+  #                   list("No dataframes in memory"),
+  #                   list(df_list))
   dt_list <- names(which(sapply(.GlobalEnv, data.table::is.data.table)))
   dt_list <- ifelse(length(dt_list) == 0,
                     list("No datatables in memory"),
-                    list(dt_list))
-  
+                    {a <- as.list(dt_list)
+                    names(a) <- rep("Data Frame", length(a))
+                    a})
   env_tabs <- shiny::reactiveValues(existing_tables = 
-                                      list(Dataframes = df_list,
-                                           Datatables = dt_list))
+                                      list(Datatables = dt_list))
 
   # Input Data UI
   
   output$input_ui <- shiny::renderUI({
     if (input$data_source == "data_frame"){
-      print(env_tabs$existing_tables)
       shinydashboard::box(
         shiny::selectInput(
           inputId = "df_to_load",
@@ -83,7 +82,6 @@ server <- function(input, output, session) {
         ),
         solidHeader = TRUE
       )
-      # input_data_selectdataframe_ui()
     } else if (input$data_source == "import"){
       input_data_importfile_ui()
     }
@@ -156,9 +154,13 @@ server <- function(input, output, session) {
     
     values$original <- out
   })
+  
+  shiny::observeEvent(input$df_to_load, {
+    values$original <- eval(parse(text = input$df_to_load))
+  })
 
   output$sample_input <- reactable::renderReactable({
-    shiny::req(input$filein_rawdata)
+    # shiny::req(input$filein_rawdata)
     dat <- head(values$original,100)
     reactable::reactable(
       dat,
