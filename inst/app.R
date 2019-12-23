@@ -215,7 +215,7 @@ server <- function(input, output, session) {
   })
   
   shiny::observeEvent(input$btn_selectdata, {
-    values$selected <- data.table::copy(values$original)
+    values$selected <- values$original
   })
   
   # Labeler UI
@@ -272,8 +272,8 @@ server <- function(input, output, session) {
   filtered_data <- shiny::reactive({
     reactive_flag()
     values$pts_selected_grps <-
-      values$original[grp %in% input$picker_group, .N]
-    values$original[grp %in% input$picker_group &
+      values$selected[grp %in% input$picker_group, .N]
+    values$selected[grp %in% input$picker_group &
                       ds >= as.POSIXct(as.character(input$daterange[1]), tz = "UTC") &
                       ds <= as.POSIXct(as.character(input$daterange[2]), tz = "UTC")]
   })
@@ -297,7 +297,7 @@ server <- function(input, output, session) {
   })
 
   output$tsplot <- shiny::renderPlot({
-    shiny::req(input$filein_rawdata)
+    shiny::req(values$selected)
     shiny::withProgress({
       dat <- filtered_data()
 
@@ -426,7 +426,7 @@ server <- function(input, output, session) {
   # })
 
   output$outtable <- reactable::renderReactable({
-    shiny::req(input$filein_rawdata)
+    shiny::req(values$selected)
     dat <- selectedPoints_zoomed()
     if (nrow(dat) == 0) {
       dat <- selectedPoints()
@@ -444,7 +444,7 @@ server <- function(input, output, session) {
   })
 
   output$metatable <- reactable::renderReactable({
-    shiny::req(input$filein_rawdata)
+    shiny::req(values$selected)
     dat <- filtered_data()
 
     meta <- data.table::data.table(
@@ -494,12 +494,12 @@ server <- function(input, output, session) {
     seldat[, tag := input$radio_taglist]
 
     unmodified <-
-      values$original[!seldat[, .(ds, grp, anomaly, tag)], on = c("ds", "grp")]
+      values$selected[!seldat[, .(ds, grp, anomaly, tag)], on = c("ds", "grp")]
     new <- data.table::rbindlist(list(unmodified, seldat))
 
     data.table::setkeyv(new, c("ds"))
 
-    values$original <- new
+    values$selected <- new
     reactive_flag(runif(n = 1))
   })
 
@@ -518,7 +518,7 @@ server <- function(input, output, session) {
   # )
 
   output$plot_anomalybar <- shiny::renderPlot({
-    shiny::req(input$filein_rawdata)
+    shiny::req(values$selected)
     dat <- filtered_data()
     dat <- dat[anomaly == 1, .(total = sum(anomaly)), tag]
     if (nrow(dat) > 0) {
