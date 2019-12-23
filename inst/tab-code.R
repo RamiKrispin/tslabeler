@@ -16,7 +16,14 @@ tab_input_data <- function() {
                                         )
                                 )
                         ),
-                        shinydashboard::box(shiny::uiOutput("input_ui"))
+                        shinydashboard::box(shiny::uiOutput("input_ui"),
+                                            width = 7,
+                                            solidHeader = TRUE),
+                        shinyWidgets::actionBttn(inputId = "btn_selectdata",
+                                                 label = "Select",
+                                                 style = "material-flat",
+                                                 size = "sm",
+                                                 icon = icon("check"))
                 ),
                 shiny::fluidRow(
                         shinydashboard::box(

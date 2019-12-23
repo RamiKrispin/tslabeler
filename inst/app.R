@@ -1,6 +1,13 @@
 options(shiny.maxRequestSize = 100 * 1024 ^ 2)
 source("ui-code.R")
 source("tab-code.R")
+
+# Initial Processessing --------------------------------------------------------------------
+dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
+                                         function(t) is.data.frame(get(t)))]
+if(length(dt_list) == 0)
+  dt_list <- "No datatables in memory"
+
 # Sidebar -----------------------------------------------------------------
 
 sidebar <- shinydashboard::dashboardSidebar(
@@ -55,20 +62,13 @@ server <- function(input, output, session) {
   # Instantiate values
   
   values <- shiny::reactiveValues()
+  # values$selected <- NULL
+  # values$is_selected <- FALSE
   reactive_flag <- shiny::reactiveVal(0)
 
-  # df_list <- names(which(sapply(.GlobalEnv, base::is.data.frame)))
-  # df_list <- ifelse(length(df_list) == 0,
-  #                   list("No dataframes in memory"),
-  #                   list(df_list))
-  dt_list <- names(which(sapply(.GlobalEnv, data.table::is.data.table)))
-  dt_list <- ifelse(length(dt_list) == 0,
-                    list("No datatables in memory"),
-                    {a <- as.list(dt_list)
-                    names(a) <- rep("Data Frame", length(a))
-                    a})
-  env_tabs <- shiny::reactiveValues(existing_tables = 
-                                      list(Datatables = dt_list))
+  env_tabs <- shiny::reactiveValues(
+    existing_tables = list("Dataframes" = c(dt_list))
+    )
 
   # Input Data UI
   
@@ -89,6 +89,7 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$filein_rawdata, {
     infile <- input$filein_rawdata
+    values$selected <- NA
     
     if (is.null(infile)) {
       return(NULL)
@@ -151,16 +152,55 @@ server <- function(input, output, session) {
       }
       values$count_existing_anomalies <- out[anomaly == 1, .N]
     }
-    
+    str(out)
     values$original <- out
   })
   
   shiny::observeEvent(input$df_to_load, {
-    values$original <- eval(parse(text = input$df_to_load))
+    shiny::req(input$df_to_load)
+    values$selected <- NA
+    # if(input$df_to_load!="No datatables in memory"){
+      out <- eval(parse(text = input$df_to_load))
+
+      out[, grp := as.character(grp)]
+      out[, value := as.numeric(value)]
+      
+      values$tag_values <- c("spike",
+                             "trend-change",
+                             "level-shift",
+                             "variance-shift",
+                             "")
+      tag_choices <- values$tag_values
+      tag_choices[tag_choices == ""] <- "remove tag"
+      values$tag_choices <- tag_choices
+      
+      values$total_pts <- out[, .N]
+      values$total_grps <- out[, length(unique(grp))]
+      
+      if (ncol(out) == 3) {
+        out[, anomaly := 0]
+        out[, tag := ""]
+        values$count_existing_anomalies <- 0
+      } else if (ncol(out) == 5) {
+        tags_in_file <- out[anomaly == 1, unique(tag)]
+        custom_tags <-
+          tags_in_file[!(tags_in_file %in% values$tag_values)]
+        if (length(custom_tags) > 0) {
+          values$tag_values <- c(values$tag_values[values$tag_values != ""],
+                                 custom_tags,
+                                 "")
+          values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"],
+                                  custom_tags,
+                                  "remove tag")
+        }
+        values$count_existing_anomalies <- out[anomaly == 1, .N]
+      }
+      values$original <- out
+    # }
   })
 
   output$sample_input <- reactable::renderReactable({
-    # shiny::req(input$filein_rawdata)
+    shiny::req(values$original)
     dat <- head(values$original,100)
     reactable::reactable(
       dat,
@@ -174,16 +214,20 @@ server <- function(input, output, session) {
     )
   })
   
+  shiny::observeEvent(input$btn_selectdata, {
+    values$selected <- data.table::copy(values$original)
+  })
+  
   # Labeler UI
   
   output$labler_menu <- shinydashboard::renderMenu({
-    shiny::req(input$filein_rawdata)
+    shiny::req(values$selected)
     shinydashboard::sidebarMenu(
       shinyWidgets::pickerInput(
         inputId = "picker_group",
         label = "Group",
-        choices = values$original[, unique(grp)],
-        selected = values$original[, unique(grp)][1],
+        choices = values$selected[, unique(grp)],
+        selected = values$selected[, unique(grp)][1],
         options = list(`live-search` = TRUE,
                        `actions-box` = TRUE),
         multiple = TRUE
@@ -191,8 +235,8 @@ server <- function(input, output, session) {
       shiny::dateRangeInput(
         inputId = "daterange",
         label = "Date range",
-        start = values$original[, min(ds)],
-        end = values$original[, max(ds)]
+        start = values$selected[, min(ds)],
+        end = values$selected[, max(ds)]
       ),
       shinyWidgets::prettyCheckboxGroup(
         inputId = "chkbox_plotopts",

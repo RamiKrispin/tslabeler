@@ -47,16 +47,4 @@ input_data_importfile_ui <- function() {
                 solidHeader = TRUE,
                 width = 12
         )
-        
-}
-
-input_data_selectdataframe_ui <- function() {
-        shinydashboard::box(
-                shiny::selectInput(
-                        inputId = "df_to_load",
-                        label = "Select variable",
-                        choices = env_tabs$existing_tables
-                ),
-                solidHeader = TRUE
-        )
 }
