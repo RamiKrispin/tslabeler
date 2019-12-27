@@ -6,7 +6,8 @@ source("tab-code.R")
 dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
                                          function(t) is.data.frame(get(t)))]
 if(length(dt_list) == 0)
-  dt_list <- "No datatables in memory"
+  dt_list <- NULL
+  # dt_list <- "No datatables in memory"
 
 # Sidebar -----------------------------------------------------------------
 
@@ -61,7 +62,7 @@ server <- function(input, output, session) {
   
   # Instantiate values
   
-  values <- shiny::reactiveValues()
+  values <- shiny::reactiveValues(selected = NULL)
   # values$selected <- NULL
   # values$is_selected <- FALSE
   reactive_flag <- shiny::reactiveVal(0)
@@ -89,7 +90,7 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$filein_rawdata, {
     infile <- input$filein_rawdata
-    values$selected <- NA
+    # values$selected <- NA
     
     if (is.null(infile)) {
       return(NULL)
@@ -158,7 +159,7 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$df_to_load, {
     shiny::req(input$df_to_load)
-    values$selected <- NA
+    # values$selected <- NA
     # if(input$df_to_load!="No datatables in memory"){
       out <- eval(parse(text = input$df_to_load))
 
@@ -270,7 +271,7 @@ server <- function(input, output, session) {
   })
 
   filtered_data <- shiny::reactive({
-    reactive_flag()
+    # reactive_flag()
     values$pts_selected_grps <-
       values$selected[grp %in% input$picker_group, .N]
     values$selected[grp %in% input$picker_group &
@@ -500,7 +501,7 @@ server <- function(input, output, session) {
     data.table::setkeyv(new, c("ds"))
 
     values$selected <- new
-    reactive_flag(runif(n = 1))
+    # reactive_flag(runif(n = 1))
   })
 
   # output$download <- shiny::downloadHandler(
