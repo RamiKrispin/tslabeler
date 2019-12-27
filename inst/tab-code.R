@@ -37,9 +37,10 @@ tab_input_data <- function() {
 }
 
 tab_labeler <- function() {
-        shiny::tabsetPanel(
-                shiny::tabPanel(
-                        title = "Overlayed View",
+        # shiny::tabsetPanel(
+        #         shiny::tabPanel(
+        #                 title = "Overlayed View",
+                                        shiny::fluidPage(
                         shiny::fluidRow(
                                 shinydashboard::box(
                                         shiny::plotOutput("tsplot", brush = "user_brush_zoomed", height = "400px"),
@@ -56,6 +57,7 @@ tab_labeler <- function() {
                                         width = 4
                                 )
                         )
-                )
-        )
+                                        )
+        #         )
+        # )
 }

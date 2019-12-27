@@ -9,6 +9,10 @@ if(length(dt_list) == 0)
   dt_list <- NULL
   # dt_list <- "No datatables in memory"
 
+if(!exists('currentTab')){
+  currentTab <- 'input_data'
+}
+
 # Sidebar -----------------------------------------------------------------
 
 sidebar <- shinydashboard::dashboardSidebar(
@@ -21,9 +25,10 @@ sidebar <- shinydashboard::dashboardSidebar(
     shinydashboard::menuItem(
       text = "Labeler",
       tabName = "labeler",
-      startExpanded = TRUE
+      startExpanded = TRUE,
+      selected = TRUE
     ),
-    shinydashboard::sidebarMenuOutput(outputId = "labler_menu")
+    shinydashboard::sidebarMenuOutput(outputId = "labeler_menu")
     # shinyWidgets::downloadBttn(
     #   "download",
     #   label = "Download",
@@ -62,10 +67,7 @@ server <- function(input, output, session) {
   
   # Instantiate values
   
-  values <- shiny::reactiveValues(selected = NULL)
-  # values$selected <- NULL
-  # values$is_selected <- FALSE
-  reactive_flag <- shiny::reactiveVal(0)
+  values <- shiny::reactiveValues()
 
   env_tabs <- shiny::reactiveValues(
     existing_tables = list("Dataframes" = c(dt_list))
@@ -90,8 +92,7 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$filein_rawdata, {
     infile <- input$filein_rawdata
-    # values$selected <- NA
-    
+
     if (is.null(infile)) {
       return(NULL)
     }
@@ -153,13 +154,11 @@ server <- function(input, output, session) {
       }
       values$count_existing_anomalies <- out[anomaly == 1, .N]
     }
-    str(out)
     values$original <- out
   })
   
   shiny::observeEvent(input$df_to_load, {
     shiny::req(input$df_to_load)
-    # values$selected <- NA
     # if(input$df_to_load!="No datatables in memory"){
       out <- eval(parse(text = input$df_to_load))
 
@@ -221,7 +220,7 @@ server <- function(input, output, session) {
   
   # Labeler UI
   
-  output$labler_menu <- shinydashboard::renderMenu({
+  output$labeler_menu <- shinydashboard::renderMenu({
     shiny::req(values$selected)
     shinydashboard::sidebarMenu(
       shinyWidgets::pickerInput(
@@ -243,10 +242,9 @@ server <- function(input, output, session) {
         inputId = "chkbox_plotopts",
         label = "Plot Options",
         choiceNames = c("Show anomalies",
-                        "Free Y scale",
                         "Show legend"),
-        choiceValues = c("anomaly", "freey", "legend"),
-        selected = c("anomaly", "freey", "legend"),
+        choiceValues = c("anomaly", "legend"),
+        selected = c("anomaly", "legend"),
         status = "info"
       ),
       shinyWidgets::actionBttn(
@@ -271,7 +269,6 @@ server <- function(input, output, session) {
   })
 
   filtered_data <- shiny::reactive({
-    # reactive_flag()
     values$pts_selected_grps <-
       values$selected[grp %in% input$picker_group, .N]
     values$selected[grp %in% input$picker_group &
@@ -293,7 +290,7 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$btn_customtag_ok, {
     if (input$textinput_customtag != "") {
       values$tag_values <- c(values$tag_values,
-                           input$textinput_customtag)
+                             input$textinput_customtag)
     }
   })
 
@@ -411,21 +408,6 @@ server <- function(input, output, session) {
     }, message = "Loading graph...")
   })
 
-  # output$tsplot_faceted <- shiny::renderPlot({
-  #   shiny::req(input$filein_rawdata)
-  #   dat <- filtered_data()
-  #   lubridate::tz(dat$ds) <- ""
-  #   lattice::xyplot(
-  #     value ~ ds | grp,
-  #     dat,
-  #     type = "l",
-  #     scales = ifelse("freey" %in% input$chkbox_plotopts, "free", "same"),
-  #     xlab = "Date",
-  #     ylab = "Value",
-  #     auto.key = list(columns = 5)
-  #   )
-  # })
-
   output$outtable <- reactable::renderReactable({
     shiny::req(values$selected)
     dat <- selectedPoints_zoomed()
@@ -501,7 +483,6 @@ server <- function(input, output, session) {
     data.table::setkeyv(new, c("ds"))
 
     values$selected <- new
-    # reactive_flag(runif(n = 1))
   })
 
   # output$download <- shiny::downloadHandler(
