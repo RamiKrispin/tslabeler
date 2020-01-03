@@ -16,14 +16,18 @@ tab_input_data <- function() {
                                         )
                                 )
                         ),
-                        shinydashboard::box(shiny::uiOutput("input_ui"),
-                                            width = 7,
-                                            solidHeader = TRUE),
-                        shinyWidgets::actionBttn(inputId = "btn_selectdata",
-                                                 label = "Select",
-                                                 style = "material-flat",
-                                                 size = "sm",
-                                                 icon = icon("check"))
+                        shinydashboard::box(
+                                shiny::uiOutput("input_ui"),
+                                width = 7,
+                                solidHeader = TRUE
+                        ),
+                        shinyWidgets::actionBttn(
+                                inputId = "btn_selectdata",
+                                label = "Select",
+                                style = "material-flat",
+                                size = "sm",
+                                icon = icon("check")
+                        )
                 ),
                 shiny::fluidRow(
                         shinydashboard::box(
@@ -37,27 +41,24 @@ tab_input_data <- function() {
 }
 
 tab_labeler <- function() {
-        # shiny::tabsetPanel(
-        #         shiny::tabPanel(
-        #                 title = "Overlayed View",
-                                        shiny::fluidPage(
-                        shiny::fluidRow(
-                                shinydashboard::box(
-                                        shiny::plotOutput("tsplot", brush = "user_brush_zoomed", height = "400px"),
-                                        shiny::plotOutput("tsplot_zoomed", brush = "user_brush", height = "400px"),
-                                        width = 12,
-                                        solidHeader = T
-                                ),
+        shiny::fluidPage(
+                shiny::fluidRow(
+                        shinydashboard::box(
+                                shiny::plotOutput("tsplot", brush = "user_brush_zoomed", height = "400px"),
+                                shiny::plotOutput("tsplot_zoomed", brush = "user_brush", height = "400px"),
+                                width = 12,
+                                solidHeader = T
                         ),
-                        shiny::fluidRow(
-                                shiny::column(reactable::reactableOutput("outtable"), width = 8),
-                                shiny::column(
-                                        reactable::reactableOutput("metatable"),
-                                        shiny::plotOutput("plot_anomalybar", height = "200px"),
-                                        width = 4
-                                )
+                ),
+                shiny::fluidRow(
+                        shiny::column(reactable::reactableOutput("outtable"), width = 8),
+                        shiny::column(
+                                reactable::reactableOutput("metatable"),
+                                shiny::plotOutput("plot_anomalybar", height = "200px"),
+                                width = 4
                         )
-                                        )
+                )
+        )
         #         )
         # )
 }

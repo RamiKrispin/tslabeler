@@ -6,8 +6,8 @@ source("tab-code.R")
 dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
                                          function(t) is.data.frame(get(t)))]
 if(length(dt_list) == 0)
-  dt_list <- NULL
-  # dt_list <- "No datatables in memory"
+  dt_list <- "No datatables in memory"
+  # dt_list <- NULL
 
 if(!exists('currentTab')){
   currentTab <- 'input_data'
@@ -28,13 +28,19 @@ sidebar <- shinydashboard::dashboardSidebar(
       startExpanded = TRUE,
       selected = TRUE
     ),
-    shinydashboard::sidebarMenuOutput(outputId = "labeler_menu")
-    # shinyWidgets::downloadBttn(
-    #   "download",
-    #   label = "Download",
-    #   style = "minimal",
-    #   size = "s"
-    # )
+    shinydashboard::sidebarMenuOutput(outputId = "labeler_menu"),
+    shinyWidgets::actionBttn(
+      inputId = "btn_save_to_env",
+      label = "Save to Env",
+      style = "simple",
+      size = "xs"
+    ),
+    shinyWidgets::downloadBttn(
+      outputId = "btn_download",
+      label = "Download",
+      style = "simple",
+      size = "xs"
+    )
   )
 )
 
@@ -45,10 +51,6 @@ body <- shinydashboard::dashboardBody(shinydashboard::tabItems(
                           tab_input_data()),
   shinydashboard::tabItem(tabName = "labeler",
                           tab_labeler())
-  # shiny::tabPanel(
-  #   "Faceted View",
-  #   shiny::plotOutput("tsplot_faceted", height = "850px")
-  # )
 ))
 
 
@@ -70,7 +72,8 @@ server <- function(input, output, session) {
   values <- shiny::reactiveValues()
 
   env_tabs <- shiny::reactiveValues(
-    existing_tables = list("Dataframes" = c(dt_list))
+    existing_tables = list(dt_list)
+    # existing_tables = list("Dataframes" = c(dt_list))
     )
 
   # Input Data UI
@@ -159,11 +162,17 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$df_to_load, {
     shiny::req(input$df_to_load)
-    # if(input$df_to_load!="No datatables in memory"){
+    if(input$df_to_load!="No datatables in memory"){
       out <- eval(parse(text = input$df_to_load))
+      out <- data.table::as.data.table(out)
 
       out[, grp := as.character(grp)]
       out[, value := as.numeric(value)]
+      
+      out[, ds := lubridate::fast_strptime(as.character(ds),
+                                           format = "%Y-%m-%d %H:%M:%S",
+                                           tz = "UTC",
+                                           lt = FALSE)]
       
       values$tag_values <- c("spike",
                              "trend-change",
@@ -196,12 +205,12 @@ server <- function(input, output, session) {
         values$count_existing_anomalies <- out[anomaly == 1, .N]
       }
       values$original <- out
-    # }
+    }
   })
 
   output$sample_input <- reactable::renderReactable({
     shiny::req(values$original)
-    dat <- head(values$original,100)
+    dat <- head(values$original,20)
     reactable::reactable(
       dat,
       columns = list(
@@ -485,20 +494,6 @@ server <- function(input, output, session) {
     values$selected <- new
   })
 
-  # output$download <- shiny::downloadHandler(
-  #   filename = function() {
-  #     paste(input$filein_rawdata$name, ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     data.table::fwrite(
-  #       x = values$original,
-  #       file = file,
-  #       row.names = FALSE,
-  #       col.names = TRUE
-  #     )
-  #   }
-  # )
-
   output$plot_anomalybar <- shiny::renderPlot({
     shiny::req(values$selected)
     dat <- filtered_data()
@@ -520,12 +515,11 @@ server <- function(input, output, session) {
       )
     }
   })
+
+  shiny::observeEvent(input$btn_save_to_env, {
+    assign(input$df_to_load, values$selected, envir = .GlobalEnv)
+  })
   
-  # output$verinfo <- renderMenu({
-  #     sidebarMenu(
-  #         "\tVer", 0.1
-  #     )
-  # })
 }
 
 shiny::shinyApp(ui, server, options = list(port = 4686))
