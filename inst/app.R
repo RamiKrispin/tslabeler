@@ -100,13 +100,60 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
+    # Instantiate values
     HEADER <- "header" %in% input$chkbox_inputfileopts
     GROUPS <- "groups" %in% input$chkbox_inputfileopts
+    ANOMALY_TAGS <- "anomalytag" %in% input$chkbox_inputfileopts
+    message(" > Expecting a HEADER:", HEADER, "  GROUPS: ", GROUPS, "  ANOMALY & TAG COLS: ", ANOMALY_TAGS)
     
+    
+    # Read CSV
     out <- data.table::fread(file = infile$datapath,
                              header = HEADER,
                              sep = input$filein_sep,
                              quote = input$filein_quote)
+    
+    out <- data.table::fread("../applepay_reduced.csv")
+
+    # Check columns
+    if(ANOMALY_TAGS)
+      assertive::assert_is_subset(c("anomaly","tag"), names(out))
+    if(GROUPS)
+      assertive::assert_is_subset(c("grp"), names(out))
+    assertive::assert_is_subset(c("ds","value"), names(out))
+    
+    if(!GROUPS)
+      out[,grp:="No Groups"]
+    
+    
+    
+    # GROUP column?
+    # NO >
+    # # Are there 2 columns or 4 columns?
+    # # # If 2 :
+    # # #   Check names for first 2 columns
+    # # #   Create 3 more columns for grp, anomaly & tag... grp="Empty"
+    # # #   Check data types
+    # # # If 4 :
+    # # #    check names
+    # # #    check data types
+    # # #    update tag-values & tag metainfo
+    # YES >
+    # # Are there 3 columns or 5 columns?
+    # # # If 3 :
+    # # #   Check names for first 3 columns
+    # # #   Create 2 more columns for anomaly & tag
+    # # #    check data types
+    # # # If 5 :
+    # # #    check names
+    # # #    check data types
+    # # #    update tag-values & tag metainfo
+    
+    # CHECK data type of ds column
+    # save to flag if DATE or DATETIME
+
+    
+    
     
     if (GROUPS) {
       data.table::setnames(out, c("ds", "grp", "value", "anomaly", "tag"))

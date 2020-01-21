@@ -16,9 +16,10 @@ input_data_importfile_ui <- function() {
                         inputId = "chkbox_inputfileopts",
                         label = "Input file options",
                         choiceNames = c("Has Header?",
-                                        "Has Groups?"),
-                        choiceValues = c("header", "groups"),
-                        selected = c("header", "groups"),
+                                        "Has Group Column??",
+                                        "Has Anomaly & Tag Columns?"),
+                        choiceValues = c("header", "groups", "anomalytag"),
+                        selected = c("header", "groups", "anomalytag"),
                         status = "info",
                         inline = TRUE
                 ),
