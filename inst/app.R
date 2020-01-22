@@ -104,76 +104,53 @@ server <- function(input, output, session) {
     HEADER <- "header" %in% input$chkbox_inputfileopts
     GROUPS <- "groups" %in% input$chkbox_inputfileopts
     ANOMALY_TAGS <- "anomalytag" %in% input$chkbox_inputfileopts
-    message(" > Expecting a HEADER:", HEADER, "  GROUPS: ", GROUPS, "  ANOMALY & TAG COLS: ", ANOMALY_TAGS)
-    
     
     # Read CSV
     out <- data.table::fread(file = infile$datapath,
                              header = HEADER,
                              sep = input$filein_sep,
                              quote = input$filein_quote)
-    
-    out <- data.table::fread("../applepay_reduced.csv")
 
     # Check columns
     if(ANOMALY_TAGS)
-      assertive::assert_is_subset(c("anomaly","tag"), names(out))
+      if(!all(c("anomaly","tag") %in% names(out)))
+        stop("You have stated Anomaly and Tag columns are present. However, `anomaly` or `tag` were not found in the header.")
+
+    if(all(c("anomaly","tag") %in% names(out)))
+      ANOMALY_TAGS <- TRUE
+
     if(GROUPS)
-      assertive::assert_is_subset(c("grp"), names(out))
-    assertive::assert_is_subset(c("ds","value"), names(out))
+      if(!all(c("grp") %in% names(out)))
+        stop("You have stated Group column is present. However, `grp` was not found in the header.")
     
+    if(!all(c("ds","value") %in% names(out)))
+      stop("`ds` or `value` was not found in the header.")
+
     if(!GROUPS)
       out[,grp:="No Groups"]
     
-    
-    
-    # GROUP column?
-    # NO >
-    # # Are there 2 columns or 4 columns?
-    # # # If 2 :
-    # # #   Check names for first 2 columns
-    # # #   Create 3 more columns for grp, anomaly & tag... grp="Empty"
-    # # #   Check data types
-    # # # If 4 :
-    # # #    check names
-    # # #    check data types
-    # # #    update tag-values & tag metainfo
-    # YES >
-    # # Are there 3 columns or 5 columns?
-    # # # If 3 :
-    # # #   Check names for first 3 columns
-    # # #   Create 2 more columns for anomaly & tag
-    # # #    check data types
-    # # # If 5 :
-    # # #    check names
-    # # #    check data types
-    # # #    update tag-values & tag metainfo
-    
-    # CHECK data type of ds column
-    # save to flag if DATE or DATETIME
-
-    
-    
-    
-    if (GROUPS) {
-      data.table::setnames(out, c("ds", "grp", "value", "anomaly", "tag"))
-    } else{
-      data.table::setnames(out, c("ds", "grp", "value"))
-    }
-
-    out[, ds := lubridate::fast_strptime(ds,
-                                         format = "%Y-%m-%d %H:%M:%S",
-                                         tz = "UTC",
-                                         lt = FALSE)]
-    if (all(is.na(out[, ds]))) {
-      stop("Could not parse date-time column. Format expected: %Y-%m-%d %H:%M:%S")
+    if(!ANOMALY_TAGS){
+      out[,anomaly:=0]
+      out[,tag:=""]
     }
     
-    data.table::setkeyv(out, "ds")
+    # Change col order
+    out <- out[,.(ds, grp, value, anomaly, tag)]
     
-    out[, grp := as.character(grp)]
+    # Col data types
+    if(input$radio_datetime=="date")
+      out[,ds:=lubridate::fast_strptime(ds, format = "%Y-%m-%d", tz = "UTC", lt = FALSE)]
+    if(input$radio_datetime=="date_time")
+      out[,ds:=lubridate::fast_strptime(ds, format = "%Y-%m-%d %H:%M:%S", tz = "UTC", lt = FALSE)]
+    if (any(is.na(out[, ds]))) {
+      stop("Could not parse date-time column. Format expected - For date-time: %Y-%m-%d %H:%M:%S. For date: %Y-%m-%d")
+    }
     out[, value := as.numeric(value)]
     
+    # Set order by date-time
+    data.table::setkeyv(out, "ds")
+
+    # Process tag values
     values$tag_values <- c("spike",
                          "trend-change",
                          "level-shift",
@@ -186,24 +163,18 @@ server <- function(input, output, session) {
     values$total_pts <- out[, .N]
     values$total_grps <- out[, length(unique(grp))]
     
-    if (ncol(out) == 3) {
-      out[, anomaly := 0]
-      out[, tag := ""]
-      values$count_existing_anomalies <- 0
-    } else if (ncol(out) == 5) {
-      tags_in_file <- out[anomaly == 1, unique(tag)]
-      custom_tags <-
-        tags_in_file[!(tags_in_file %in% values$tag_values)]
-      if (length(custom_tags) > 0) {
-        values$tag_values <- c(values$tag_values[values$tag_values != ""],
-                             custom_tags,
-                             "")
-        values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"],
-                               custom_tags,
-                               "remove tag")
-      }
-      values$count_existing_anomalies <- out[anomaly == 1, .N]
+    tags_in_file <- out[anomaly == 1, unique(tag)]
+    
+    custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_values)]
+    
+    if (length(custom_tags) > 0) {
+      values$tag_values <- c(values$tag_values[values$tag_values != ""],
+                             custom_tags, "")
+      values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"], custom_tags, "remove tag")
     }
+    
+    values$count_existing_anomalies <- out[anomaly == 1, .N]
+    
     values$original <- out
   })
   

@@ -16,11 +16,21 @@ input_data_importfile_ui <- function() {
                         inputId = "chkbox_inputfileopts",
                         label = "Input file options",
                         choiceNames = c("Has Header?",
-                                        "Has Group Column??",
+                                        "Has Group Column?",
                                         "Has Anomaly & Tag Columns?"),
                         choiceValues = c("header", "groups", "anomalytag"),
                         selected = c("header", "groups", "anomalytag"),
                         status = "info",
+                        inline = TRUE
+                ),
+                shinyWidgets::prettyRadioButtons(
+                        inputId = 'radio_datetime',
+                        label = 'Date Column Type',
+                        choices = list(
+                                "Date" = "date",
+                                "Date Time" = "date_time"
+                        ),
+                        selected = "date_time",
                         inline = TRUE
                 ),
                 shinyWidgets::prettyRadioButtons(
