@@ -104,14 +104,22 @@ server <- function(input, output, session) {
     GROUPS <- "groups" %in% input$chkbox_inputfileopts
     ANOMALY_TAGS <- "anomalytag" %in% input$chkbox_inputfileopts
     
-    values <- tslabeler:::process_input_file(
+    dat <- tslabeler:::process_input_file(
       input_file = infile$datapath,
       sep = input$filein_sep,
       quote = input$filein_quote,
       ANOMALY_TAGS = ANOMALY_TAGS,
       GROUPS = GROUPS,
       date_coltype = input$radio_datetime
-    )xx
+    )
+    
+    values$tag_values <- dat$tag_values
+    values$tag_choices <- dat$tag_choices
+    values$total_pts <- dat$total_pts
+    values$total_grps <- dat$total_grps
+    values$count_existing_anomalies <- dat$count_existing_anomalies
+    values$original <- dat$original
+    
   })
   
   shiny::observeEvent(input$df_to_load, {

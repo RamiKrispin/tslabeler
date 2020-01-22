@@ -33,7 +33,7 @@ process_input_file <- function(input_file,
                                  sep = sep,
                                  quote = quote)
         
-        # Check columns
+        # Check columns, quality check data
         if(ANOMALY_TAGS)
                 if(!all(c("anomaly","tag") %in% names(out)))
                         stop("You have stated Anomaly and Tag columns are present. However, `anomaly` or `tag` were not found in the header.")
@@ -58,8 +58,17 @@ process_input_file <- function(input_file,
                 out[,tag:=""]
         }
         
+        if(!all(out[,unique(anomaly)] %in% c(0,1)))
+                stop("anomaly column contains values not [0,1]")
+        
         # Change col order to standard order
         out <- out[,.(ds, grp, value, anomaly, tag)]
+        
+        # Test for NA values in tag. If present, replace by ""
+        if((count_ <- out[is.na(tag),.N])!=0){
+                warning("Found ", count_, " NA values in tag column. Replacing by empty string ('')")
+                out[is.na(tag), tag := ""]
+        }
         
         # Col data types
         if(date_coltype=="date")
@@ -74,35 +83,45 @@ process_input_file <- function(input_file,
         # Set order by date-time
         data.table::setkeyv(out, "ds")
         
-        values <- list()
+        # Any anomaly=1 where tag = ""?
+        count_ <- out[anomaly==1 & tag=="", .N]
+        if(count_!=0)
+                warning("Found ",count_," rows where anomaly is 1, yet tag is empty ('')")
+        
+        # Any anomaly=0 where tag != ""?
+        count_ <- out[anomaly==0 & tag!="", .N]
+        if(count_!=0)
+                warning("Found ",count_," rows where anomaly is 0, yet tag is not empty")
+        
+        return_list <- list()
         
         # Process tag values
-        values$tag_values <- c("spike",
+        return_list$tag_values <- c("spike",
                                "trend-change",
                                "level-shift",
                                "variance-shift",
                                "")
-        tag_choices <- values$tag_values
+        tag_choices <- return_list$tag_values
         tag_choices[tag_choices == ""] <- "remove tag"
-        values$tag_choices <- tag_choices
+        return_list$tag_choices <- tag_choices
         
-        values$total_pts <- out[, .N]
-        values$total_grps <- out[, length(unique(grp))]
+        return_list$total_pts <- out[, .N]
+        return_list$total_grps <- out[, length(unique(grp))]
         
         tags_in_file <- out[anomaly == 1, unique(tag)]
         
-        custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_values)]
+        custom_tags <- tags_in_file[!(tags_in_file %in% return_list$tag_values)]
         
         if (length(custom_tags) > 0) {
-                values$tag_values <- c(values$tag_values[values$tag_values != ""],
+                return_list$tag_values <- c(return_list$tag_values[return_list$tag_values != ""],
                                        custom_tags, "")
-                values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"], custom_tags, "remove tag")
+                return_list$tag_choices <- c(return_list$tag_choices[return_list$tag_choices != "remove tag"], custom_tags, "remove tag")
         }
         
-        values$count_existing_anomalies <- out[anomaly == 1, .N]
+        return_list$count_existing_anomalies <- out[anomaly == 1, .N]
         
-        values$original <- out
+        return_list$original <- out
         
-        values
+        return_list
         
 }
