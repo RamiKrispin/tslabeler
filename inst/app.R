@@ -1,6 +1,7 @@
 options(shiny.maxRequestSize = 100 * 1024 ^ 2)
 source("ui-code.R")
 source("tab-code.R")
+# source("input-fn.R")
 
 # Initial Processessing --------------------------------------------------------------------
 dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
@@ -100,82 +101,17 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    # Instantiate values
-    HEADER <- "header" %in% input$chkbox_inputfileopts
     GROUPS <- "groups" %in% input$chkbox_inputfileopts
     ANOMALY_TAGS <- "anomalytag" %in% input$chkbox_inputfileopts
     
-    # Read CSV
-    out <- data.table::fread(file = infile$datapath,
-                             header = HEADER,
-                             sep = input$filein_sep,
-                             quote = input$filein_quote)
-
-    # Check columns
-    if(ANOMALY_TAGS)
-      if(!all(c("anomaly","tag") %in% names(out)))
-        stop("You have stated Anomaly and Tag columns are present. However, `anomaly` or `tag` were not found in the header.")
-
-    if(all(c("anomaly","tag") %in% names(out)))
-      ANOMALY_TAGS <- TRUE
-
-    if(GROUPS)
-      if(!all(c("grp") %in% names(out)))
-        stop("You have stated Group column is present. However, `grp` was not found in the header.")
-    
-    if(!all(c("ds","value") %in% names(out)))
-      stop("`ds` or `value` was not found in the header.")
-
-    if(!GROUPS)
-      out[,grp:="No Groups"]
-    
-    if(!ANOMALY_TAGS){
-      out[,anomaly:=0]
-      out[,tag:=""]
-    }
-    
-    # Change col order
-    out <- out[,.(ds, grp, value, anomaly, tag)]
-    
-    # Col data types
-    if(input$radio_datetime=="date")
-      out[,ds:=lubridate::fast_strptime(ds, format = "%Y-%m-%d", tz = "UTC", lt = FALSE)]
-    if(input$radio_datetime=="date_time")
-      out[,ds:=lubridate::fast_strptime(ds, format = "%Y-%m-%d %H:%M:%S", tz = "UTC", lt = FALSE)]
-    if (any(is.na(out[, ds]))) {
-      stop("Could not parse date-time column. Format expected - For date-time: %Y-%m-%d %H:%M:%S. For date: %Y-%m-%d")
-    }
-    out[, value := as.numeric(value)]
-    
-    # Set order by date-time
-    data.table::setkeyv(out, "ds")
-
-    # Process tag values
-    values$tag_values <- c("spike",
-                         "trend-change",
-                         "level-shift",
-                         "variance-shift",
-                         "")
-    tag_choices <- values$tag_values
-    tag_choices[tag_choices == ""] <- "remove tag"
-    values$tag_choices <- tag_choices
-  
-    values$total_pts <- out[, .N]
-    values$total_grps <- out[, length(unique(grp))]
-    
-    tags_in_file <- out[anomaly == 1, unique(tag)]
-    
-    custom_tags <- tags_in_file[!(tags_in_file %in% values$tag_values)]
-    
-    if (length(custom_tags) > 0) {
-      values$tag_values <- c(values$tag_values[values$tag_values != ""],
-                             custom_tags, "")
-      values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"], custom_tags, "remove tag")
-    }
-    
-    values$count_existing_anomalies <- out[anomaly == 1, .N]
-    
-    values$original <- out
+    values <- tslabeler:::process_input_file(
+      input_file = infile$datapath,
+      sep = input$filein_sep,
+      quote = input$filein_quote,
+      ANOMALY_TAGS = ANOMALY_TAGS,
+      GROUPS = GROUPS,
+      date_coltype = input$radio_datetime
+    )xx
   })
   
   shiny::observeEvent(input$df_to_load, {

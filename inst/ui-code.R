@@ -15,11 +15,10 @@ input_data_importfile_ui <- function() {
                 shinyWidgets::prettyCheckboxGroup(
                         inputId = "chkbox_inputfileopts",
                         label = "Input file options",
-                        choiceNames = c("Has Header?",
-                                        "Has Group Column?",
+                        choiceNames = c("Has Group Column?",
                                         "Has Anomaly & Tag Columns?"),
-                        choiceValues = c("header", "groups", "anomalytag"),
-                        selected = c("header", "groups", "anomalytag"),
+                        choiceValues = c("groups", "anomalytag"),
+                        selected = c("groups", "anomalytag"),
                         status = "info",
                         inline = TRUE
                 ),
