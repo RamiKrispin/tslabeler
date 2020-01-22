@@ -63,9 +63,9 @@ process_input_file <- function(input_file,
         
         # Col data types
         if(date_coltype=="date")
-                out[,ds:=lubridate::ymd(ds)]
+                out[,ds:=lubridate::ymd(ds, quiet = T, tz = "UTC")]
         if(date_coltype=="date_time")
-                out[,ds:=lubridate::ymd_hms(ds)]
+                out[,ds:=lubridate::ymd_hms(ds, quiet = T, tz = "UTC")]
         if (any(is.na(out[, ds]))) {
                 stop("Could not parse date-time column. Format expected - For date-time: %Y-%m-%dT%H:%M:%SZ. For date: %Y-%m-%d")
         }
