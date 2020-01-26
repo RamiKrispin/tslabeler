@@ -72,7 +72,7 @@ process_input_file <- function(input_file,
         
         # Col data types
         if(date_coltype=="date")
-                out[,ds:=lubridate::ymd(ds, quiet = T, tz = "UTC")]
+                out[,ds:=lubridate::ymd(ds, quiet = T)]
         if(date_coltype=="date_time")
                 out[,ds:=lubridate::ymd_hms(ds, quiet = T, tz = "UTC")]
         if (any(is.na(out[, ds]))) {
@@ -125,3 +125,97 @@ process_input_file <- function(input_file,
         return_list
         
 }
+
+
+#' Title
+#'
+#' @return
+get_dt_from_env <- function(){
+        
+        dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
+                                                 function(t) is.data.frame(get(t)))]
+        if(length(dt_list) == 0)
+                dt_list <- "No dataframes/datatables in environment"
+
+        dt_list
+}
+
+process_dt_from_env <- function(out){
+        
+        if(!all(c("ds","value") %in% names(out)))
+                stop("`ds` or `value` was not found in the header.")
+        
+        GROUPS <- "grp" %in% names(out)
+        
+        if(!GROUPS)
+                out[,grp:="No Groups"]
+        
+        ANOMALY_TAGS <- all(c("anomaly", "tag") %in% names(out))
+
+        if(!ANOMALY_TAGS){
+                out[,anomaly:=0]
+                out[,tag:=""]
+        }
+        
+        # Col data types
+        if (!any(lubridate::is.Date(out[,ds]), lubridate::is.POSIXct(out[,ds]))){
+                message("`ds` column is not of type Date or POSIXct. Trying to convert to POSIXct")
+                out[, ds:=lubridate::ymd_hms(ds, truncated = 3, tz = "UTC")]
+        }
+        
+        if (any(is.na(out[, ds])))
+                stop("Could not parse date-time column. Format expected - For date-time: %Y-%m-%dT%H:%M:%SZ or similar. For date: %Y-%m-%d")
+
+        out[, value := as.numeric(value)]
+        
+        # Set order by date-time
+        data.table::setkeyv(out, "ds")
+        
+        out
+}
+
+# 
+# 
+# 
+# out <- eval(parse(text = input$df_to_load))
+# out <- data.table::as.data.table(out)
+# 
+# out[, grp := as.character(grp)]
+# out[, value := as.numeric(value)]
+# 
+# out[, ds := lubridate::fast_strptime(as.character(ds),
+#                                      format = "%Y-%m-%d %H:%M:%S",
+#                                      tz = "UTC",
+#                                      lt = FALSE)]
+# 
+# values$tag_values <- c("spike",
+#                        "trend-change",
+#                        "level-shift",
+#                        "variance-shift",
+#                        "")
+# tag_choices <- values$tag_values
+# tag_choices[tag_choices == ""] <- "remove tag"
+# values$tag_choices <- tag_choices
+# 
+# values$total_pts <- out[, .N]
+# values$total_grps <- out[, length(unique(grp))]
+# 
+# if (ncol(out) == 3) {
+#         out[, anomaly := 0]
+#         out[, tag := ""]
+#         values$count_existing_anomalies <- 0
+# } else if (ncol(out) == 5) {
+#         tags_in_file <- out[anomaly == 1, unique(tag)]
+#         custom_tags <-
+#                 tags_in_file[!(tags_in_file %in% values$tag_values)]
+#         if (length(custom_tags) > 0) {
+#                 values$tag_values <- c(values$tag_values[values$tag_values != ""],
+#                                        custom_tags,
+#                                        "")
+#                 values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"],
+#                                         custom_tags,
+#                                         "remove tag")
+#         }
+#         values$count_existing_anomalies <- out[anomaly == 1, .N]
+# }
+# values$original <- out

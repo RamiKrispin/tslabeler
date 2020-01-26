@@ -4,11 +4,8 @@ source("tab-code.R")
 # source("input-fn.R")
 
 # Initial Processessing --------------------------------------------------------------------
-dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
-                                         function(t) is.data.frame(get(t)))]
-if(length(dt_list) == 0)
-  dt_list <- "No datatables in memory"
-  # dt_list <- NULL
+
+dt_list <- tslabeler:::get_dt_from_env()
 
 if(!exists('currentTab')){
   currentTab <- 'input_data'
@@ -73,8 +70,7 @@ server <- function(input, output, session) {
   values <- shiny::reactiveValues()
 
   env_tabs <- shiny::reactiveValues(
-    existing_tables = list(dt_list)
-    # existing_tables = list("Dataframes" = c(dt_list))
+    existing_tables = list("Dataframes"=dt_list)
     )
 
   # Input Data UI
@@ -85,7 +81,8 @@ server <- function(input, output, session) {
         shiny::selectInput(
           inputId = "df_to_load",
           label = "Select variable",
-          choices = env_tabs$existing_tables
+          choices = env_tabs$existing_tables,
+          multiple = FALSE
         ),
         solidHeader = TRUE
       )
@@ -119,74 +116,30 @@ server <- function(input, output, session) {
     values$total_grps <- dat$total_grps
     values$count_existing_anomalies <- dat$count_existing_anomalies
     values$original <- dat$original
+    values$source <- "FILE"
     
   })
   
   shiny::observeEvent(input$df_to_load, {
     shiny::req(input$df_to_load)
-    if(input$df_to_load!="No datatables in memory"){
+    if(all(input$df_to_load!="No dataframes/datatables in memory")){
       out <- eval(parse(text = input$df_to_load))
-      out <- data.table::as.data.table(out)
-
-      out[, grp := as.character(grp)]
-      out[, value := as.numeric(value)]
-      
-      out[, ds := lubridate::fast_strptime(as.character(ds),
-                                           format = "%Y-%m-%d %H:%M:%S",
-                                           tz = "UTC",
-                                           lt = FALSE)]
-      
-      values$tag_values <- c("spike",
-                             "trend-change",
-                             "level-shift",
-                             "variance-shift",
-                             "")
-      tag_choices <- values$tag_values
-      tag_choices[tag_choices == ""] <- "remove tag"
-      values$tag_choices <- tag_choices
-      
-      values$total_pts <- out[, .N]
-      values$total_grps <- out[, length(unique(grp))]
-      
-      if (ncol(out) == 3) {
-        out[, anomaly := 0]
-        out[, tag := ""]
-        values$count_existing_anomalies <- 0
-      } else if (ncol(out) == 5) {
-        tags_in_file <- out[anomaly == 1, unique(tag)]
-        custom_tags <-
-          tags_in_file[!(tags_in_file %in% values$tag_values)]
-        if (length(custom_tags) > 0) {
-          values$tag_values <- c(values$tag_values[values$tag_values != ""],
-                                 custom_tags,
-                                 "")
-          values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"],
-                                  custom_tags,
-                                  "remove tag")
-        }
-        values$count_existing_anomalies <- out[anomaly == 1, .N]
-      }
       values$original <- out
     }
   })
 
   output$sample_input <- reactable::renderReactable({
     shiny::req(values$original)
-    dat <- head(values$original,20)
-    reactable::reactable(
-      dat,
-      columns = list(
-        ds = reactable::colDef("Date", format = reactable::colFormat(datetime = T)),
-        grp = reactable::colDef("Group"),
-        value = reactable::colDef("Value", format = reactable::colFormat(digits = 3)),
-        anomaly = reactable::colDef("Anomaly"),
-        tag = reactable::colDef("Tag")
-      )
-    )
+    dat <- head(values$original,10)
+    values$source <- "ENV"
+    reactable::reactable(dat)
   })
   
   shiny::observeEvent(input$btn_selectdata, {
-    values$selected <- values$original
+    if(values$source=="FILE")
+        values$selected <- values$original
+    if(values$source=="ENV")
+      values$selected <- tslabeler:::process_dt_from_env(values$original)
   })
   
   # Labeler UI

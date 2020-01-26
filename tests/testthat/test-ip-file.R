@@ -26,6 +26,7 @@ test_that("CSV input function works", {
                 n = 6
         )
 })
+
 test_that("CSV input function fails for missing columns", {
         tmpfile <- tempfile(fileext = ".csv")
         dat <- data.table::data.table(
@@ -90,6 +91,7 @@ test_that("CSV input function fails for missing columns", {
                 )
         )
 })
+
 test_that("CSV input function fails for incorrect date-time formats", {
         tmpfile <- tempfile(fileext = ".csv")
         dat <- data.table::data.table(
