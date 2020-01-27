@@ -27,16 +27,20 @@ sidebar <- shinydashboard::dashboardSidebar(
       selected = TRUE
     ),
     shinydashboard::sidebarMenuOutput(outputId = "labeler_menu"),
+    hr(),
     shinyWidgets::actionBttn(
       inputId = "btn_save_to_env",
       label = "Save to Env",
       style = "simple",
-      size = "xs"
+      size = "xs",
+      color = "success",
+      icon = icon("floppy-o")
     ),
     shinyWidgets::downloadBttn(
       outputId = "btn_download",
       label = "Download",
-      style = "simple",
+      style = "material-flat",
+      color = "primary",
       size = "xs"
     )
   )
@@ -117,6 +121,7 @@ server <- function(input, output, session) {
     values$count_existing_anomalies <- dat$count_existing_anomalies
     values$original <- dat$original
     values$source <- "FILE"
+    values$dfname <- input$filein_rawdata$name
     
   })
   
@@ -124,6 +129,7 @@ server <- function(input, output, session) {
     shiny::req(input$df_to_load)
     if(all(input$df_to_load!="No dataframes/datatables in memory")){
       out <- eval(parse(text = input$df_to_load))
+      values$dfname <- input$df_to_load
       values$original <- out
     }
   })
@@ -140,7 +146,6 @@ server <- function(input, output, session) {
         values$selected <- values$original
     if(values$source=="ENV"){
       dat <- tslabeler:::process_dt_from_env(out = values$original)
-      str(dat)
       values$tag_values <- dat$tag_values
       values$tag_choices <- dat$tag_choices
       values$total_pts <- dat$total_pts
@@ -440,7 +445,7 @@ server <- function(input, output, session) {
   })
 
   shiny::observeEvent(input$btn_save_to_env, {
-    assign(input$df_to_load, values$selected, envir = .GlobalEnv)
+      assign(values$dfname, values$selected, envir = .GlobalEnv)
   })
   
 }
