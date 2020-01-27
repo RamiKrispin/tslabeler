@@ -1,8 +1,7 @@
 options(shiny.maxRequestSize = 100 * 1024 ^ 2)
 source("ui-code.R")
 source("tab-code.R")
-# source("input-fn.R")
-
+  
 # Initial Processessing --------------------------------------------------------------------
 
 dt_list <- tslabeler:::get_dt_from_env()
@@ -15,17 +14,6 @@ if(!exists('currentTab')){
 
 sidebar <- shinydashboard::dashboardSidebar(
   shinydashboard::sidebarMenu(
-    shinydashboard::menuItem(
-      text = "Inputs",
-      tabName = "input_data",
-      icon = icon("table")
-    ),
-    shinydashboard::menuItem(
-      text = "Labeler",
-      tabName = "labeler",
-      startExpanded = TRUE,
-      selected = TRUE
-    ),
     shinydashboard::sidebarMenuOutput(outputId = "labeler_menu"),
     hr(),
     shinyWidgets::actionBttn(
@@ -62,7 +50,7 @@ ui <- shinydashboard::dashboardPage(
   header = shinydashboardPlus::dashboardHeaderPlus(title = "TS Labeler"),
   sidebar = sidebar,
   body = body,
-  skin = "black"
+  skin = "blue"
 )
 
 # Server ------------------------------------------------------------------
@@ -71,7 +59,7 @@ server <- function(input, output, session) {
   
   # Instantiate values
   
-  values <- shiny::reactiveValues()
+  values <- shiny::reactiveValues(selected = NULL)
 
   env_tabs <- shiny::reactiveValues(
     existing_tables = list("Dataframes"=dt_list)
@@ -158,51 +146,72 @@ server <- function(input, output, session) {
   # Labeler UI
   
   output$labeler_menu <- shinydashboard::renderMenu({
-    shiny::req(values$selected)
-    shinydashboard::sidebarMenu(
-      shinyWidgets::pickerInput(
-        inputId = "picker_group",
-        label = "Group",
-        choices = values$selected[, unique(grp)],
-        selected = values$selected[, unique(grp)][1],
-        options = list(`live-search` = TRUE,
-                       `actions-box` = TRUE),
-        multiple = TRUE
-      ),
-      shiny::dateRangeInput(
-        inputId = "daterange",
-        label = "Date range",
-        start = values$selected[, min(ds)],
-        end = values$selected[, max(ds)]
-      ),
-      shinyWidgets::prettyCheckboxGroup(
-        inputId = "chkbox_plotopts",
-        label = "Plot Options",
-        choiceNames = c("Show anomalies",
-                        "Show legend"),
-        choiceValues = c("anomaly", "legend"),
-        selected = c("anomaly", "legend"),
-        status = "info"
-      ),
-      shinyWidgets::actionBttn(
-        inputId = "btn_newtag",
-        label = NULL,
-        style = "material-circle",
-        color = "primary",
-        size = "xs",
-        icon = shiny::icon("plus")
-      ),
-      shinyWidgets::prettyRadioButtons(
-        inputId = "radio_taglist",
-        label = "Tags",
-        choiceNames = values$tag_choices,
-        choiceValues = values$tag_values,
-        inline = TRUE,
-        status = "danger",
-        fill = TRUE
-      ),
-      shiny::actionButton("mark", "Mark Tags", icon = shiny::icon("bullseye"))
-    )
+    if (is.null(values$selected)) {
+      p <- shinydashboard::sidebarMenu(shinydashboard::menuItem(
+        text = "Inputs",
+        tabName = "input_data",
+        icon = icon("table")
+      ))
+    } else {
+      p <- shinydashboard::sidebarMenu(
+        shinydashboard::menuItem(
+          text = "Inputs",
+          tabName = "input_data",
+          icon = icon("table")
+        ),
+        shinydashboard::menuItem(
+          text = "Labeler",
+          tabName = "labeler",
+          startExpanded = TRUE,
+          selected = TRUE
+        ),
+        
+        shinyWidgets::pickerInput(
+          inputId = "picker_group",
+          label = "Group",
+          choices = values$selected[, unique(grp)],
+          selected = values$selected[, unique(grp)][1],
+          options = list(`live-search` = TRUE,
+                         `actions-box` = TRUE),
+          multiple = TRUE
+        ),
+        shiny::dateRangeInput(
+          inputId = "daterange",
+          label = "Date range",
+          start = values$selected[, min(ds)],
+          end = values$selected[, max(ds)]
+        ),
+        shinyWidgets::prettyCheckboxGroup(
+          inputId = "chkbox_plotopts",
+          label = "Plot Options",
+          choiceNames = c("Show anomalies",
+                          "Show legend"),
+          choiceValues = c("anomaly", "legend"),
+          selected = c("anomaly", "legend"),
+          status = "info"
+        ),
+        shinyWidgets::actionBttn(
+          inputId = "btn_newtag",
+          label = NULL,
+          style = "material-circle",
+          color = "primary",
+          size = "xs",
+          icon = shiny::icon("plus")
+        ),
+        shinyWidgets::prettyRadioButtons(
+          inputId = "radio_taglist",
+          label = "Tags",
+          choiceNames = values$tag_choices,
+          choiceValues = values$tag_values,
+          inline = TRUE,
+          status = "danger",
+          fill = TRUE
+        ),
+        shiny::actionButton("mark", "Mark Tags", icon = shiny::icon("bullseye"))
+      )
+      
+    }
+    p
   })
 
   filtered_data <- shiny::reactive({
