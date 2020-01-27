@@ -127,9 +127,13 @@ process_input_file <- function(input_file,
 }
 
 
-#' Title
+#' Get dataframe/datatable list from calling environment
+#' 
+#' This returns a list of all dataframes / datatables in the calling environment.
+#' 
+#' (Internal function)
 #'
-#' @return
+#' @return char vector of dt list
 get_dt_from_env <- function(){
         
         dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
@@ -140,7 +144,20 @@ get_dt_from_env <- function(){
         dt_list
 }
 
+#' Process dataframe selected from environment
+#' 
+#' This internal function is responsible for pre-processing a selected df from the env. The shiny app
+#' relies on this func to check all req of the df (cols, col types, data quality etc), and req that 
+#' this function gives an error on violating any requirements.
+#'
+#' (Internal function)
+#'
+#' @param out raw dataframe from env
+#'
+#' @return list of outputs
 process_dt_from_env <- function(out){
+        
+        out <- data.table::as.data.table(out)
         
         if(!all(c("ds","value") %in% names(out)))
                 stop("`ds` or `value` was not found in the header.")
@@ -166,56 +183,62 @@ process_dt_from_env <- function(out){
         if (any(is.na(out[, ds])))
                 stop("Could not parse date-time column. Format expected - For date-time: %Y-%m-%dT%H:%M:%SZ or similar. For date: %Y-%m-%d")
 
+        if(!all(out[,unique(anomaly)] %in% c(0,1)))
+                stop("anomaly column contains values not [0,1]")
+        
+        # Change col order to standard order
+        out <- out[,.(ds, grp, value, anomaly, tag)]
+        
+        # Test for NA values in tag. If present, replace by ""
+        if((count_ <- out[is.na(tag),.N])!=0){
+                warning("Found ", count_, " NA values in tag column. Replacing by empty string ('')")
+                out[is.na(tag), tag := ""]
+        }
+        
+        # Any anomaly=1 where tag = ""?
+        count_ <- out[anomaly==1 & tag=="", .N]
+        if(count_!=0)
+                warning("Found ",count_," rows where anomaly is 1, yet tag is empty ('')")
+        
+        # Any anomaly=0 where tag != ""?
+        count_ <- out[anomaly==0 & tag!="", .N]
+        if(count_!=0)
+                warning("Found ",count_," rows where anomaly is 0, yet tag is not empty")
+        
+        out[, grp := as.character(grp)]
         out[, value := as.numeric(value)]
         
         # Set order by date-time
         data.table::setkeyv(out, "ds")
         
-        out
+        return_list <- list()
+        
+        # Process tag values
+        return_list$tag_values <- c("spike",
+                                    "trend-change",
+                                    "level-shift",
+                                    "variance-shift",
+                                    "")
+        tag_choices <- return_list$tag_values
+        tag_choices[tag_choices == ""] <- "remove tag"
+        return_list$tag_choices <- tag_choices
+        
+        return_list$total_pts <- out[, .N]
+        return_list$total_grps <- out[, length(unique(grp))]
+        
+        tags_in_file <- out[anomaly == 1, unique(tag)]
+        
+        custom_tags <- tags_in_file[!(tags_in_file %in% return_list$tag_values)]
+        
+        if (length(custom_tags) > 0) {
+                return_list$tag_values <- c(return_list$tag_values[return_list$tag_values != ""],
+                                            custom_tags, "")
+                return_list$tag_choices <- c(return_list$tag_choices[return_list$tag_choices != "remove tag"], custom_tags, "remove tag")
+        }
+        
+        return_list$count_existing_anomalies <- out[anomaly == 1, .N]
+        
+        return_list$original <- out
+        
+        return_list
 }
-
-# 
-# 
-# 
-# out <- eval(parse(text = input$df_to_load))
-# out <- data.table::as.data.table(out)
-# 
-# out[, grp := as.character(grp)]
-# out[, value := as.numeric(value)]
-# 
-# out[, ds := lubridate::fast_strptime(as.character(ds),
-#                                      format = "%Y-%m-%d %H:%M:%S",
-#                                      tz = "UTC",
-#                                      lt = FALSE)]
-# 
-# values$tag_values <- c("spike",
-#                        "trend-change",
-#                        "level-shift",
-#                        "variance-shift",
-#                        "")
-# tag_choices <- values$tag_values
-# tag_choices[tag_choices == ""] <- "remove tag"
-# values$tag_choices <- tag_choices
-# 
-# values$total_pts <- out[, .N]
-# values$total_grps <- out[, length(unique(grp))]
-# 
-# if (ncol(out) == 3) {
-#         out[, anomaly := 0]
-#         out[, tag := ""]
-#         values$count_existing_anomalies <- 0
-# } else if (ncol(out) == 5) {
-#         tags_in_file <- out[anomaly == 1, unique(tag)]
-#         custom_tags <-
-#                 tags_in_file[!(tags_in_file %in% values$tag_values)]
-#         if (length(custom_tags) > 0) {
-#                 values$tag_values <- c(values$tag_values[values$tag_values != ""],
-#                                        custom_tags,
-#                                        "")
-#                 values$tag_choices <- c(values$tag_choices[values$tag_choices != "remove tag"],
-#                                         custom_tags,
-#                                         "remove tag")
-#         }
-#         values$count_existing_anomalies <- out[anomaly == 1, .N]
-# }
-# values$original <- out

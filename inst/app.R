@@ -138,8 +138,16 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$btn_selectdata, {
     if(values$source=="FILE")
         values$selected <- values$original
-    if(values$source=="ENV")
-      values$selected <- tslabeler:::process_dt_from_env(values$original)
+    if(values$source=="ENV"){
+      dat <- tslabeler:::process_dt_from_env(out = values$original)
+      str(dat)
+      values$tag_values <- dat$tag_values
+      values$tag_choices <- dat$tag_choices
+      values$total_pts <- dat$total_pts
+      values$total_grps <- dat$total_grps
+      values$count_existing_anomalies <- dat$count_existing_anomalies
+      values$selected <- dat$original
+    }
   })
   
   # Labeler UI
