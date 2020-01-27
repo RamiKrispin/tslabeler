@@ -201,7 +201,7 @@ server <- function(input, output, session) {
         status = "danger",
         fill = TRUE
       ),
-      shiny::actionButton("mark", "Mark Anomaly", icon = shiny::icon("thumb-tack"))
+      shiny::actionButton("mark", "Mark Tags", icon = shiny::icon("bullseye"))
     )
   })
 

@@ -2,12 +2,12 @@ tab_input_data <- function() {
         shiny::fluidPage(
                 shiny::fluidRow(
                         shinydashboard::box(
-                                width = 4,
+                                width = 3,
                                 height = 100,
                                 solidHeader = TRUE,
-                                shiny::selectInput(
-                                        inputId = 'data_source',
-                                        label = 'Select Data Source',
+                                shinyWidgets::awesomeRadio(
+                                        inputId = "data_source",
+                                        label = "Select Data Source",
                                         choices = list(
                                                 "R Data Frame / Data Table" = "data_frame",
                                                 # "R Time Series" = "time_series",
@@ -18,7 +18,7 @@ tab_input_data <- function() {
                         ),
                         shinydashboard::box(
                                 shiny::uiOutput("input_ui"),
-                                width = 7,
+                                width = 8,
                                 solidHeader = TRUE
                         ),
                         shinyWidgets::actionBttn(

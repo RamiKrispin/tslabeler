@@ -100,6 +100,7 @@ process_input_file <- function(input_file,
                                "trend-change",
                                "level-shift",
                                "variance-shift",
+                               "outlier",
                                "")
         tag_choices <- return_list$tag_values
         tag_choices[tag_choices == ""] <- "remove tag"
@@ -218,6 +219,7 @@ process_dt_from_env <- function(out){
                                     "trend-change",
                                     "level-shift",
                                     "variance-shift",
+                                    "outlier",
                                     "")
         tag_choices <- return_list$tag_values
         tag_choices[tag_choices == ""] <- "remove tag"
