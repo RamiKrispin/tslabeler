@@ -59,6 +59,4 @@ tab_labeler <- function() {
                         )
                 )
         )
-        #         )
-        # )
 }
