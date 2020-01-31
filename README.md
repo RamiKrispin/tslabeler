@@ -3,7 +3,7 @@
 
 # tslabeler
 
-![build](https://github.com/rsangole/tslabeler/workflows/build/badge.svg)
+![build](https://github.com/rsangole/tslabeler/workflows/build/badge.svg?branch=master)
 
 ## Shiny app to label time series data
 
