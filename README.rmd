@@ -1,0 +1,31 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# tslabeler
+
+![build](https://github.com/rsangole/tslabeler/workflows/build/badge.svg)
+
+## Shiny app to label time series data
+
+Labeling time series data is a typical preprocessing step for developing time series forecasting, classification or anomaly detection models. This Shiny app allows you to label very large quantities of time series data interactively, yet quickly.
+
+## Installation
+
+You can install the **development** version from
+[GitHub](https://github.com/rsangole/tslabeler).
+
+```{r gh-installation, eval = FALSE}
+# install.packages("devtools")
+devtools::install_github("rsangole/tslabeler")
+```
+
