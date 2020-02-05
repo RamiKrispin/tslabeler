@@ -4,6 +4,7 @@
 # tslabeler
 
 ![build](https://github.com/rsangole/tslabeler/workflows/build/badge.svg?branch=master)
+[![lifecycle](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
 
 ## Shiny app to label time series data
 
