@@ -140,7 +140,7 @@ get_dt_from_env <- function(){
         dt_list <- ls(envir = .GlobalEnv)[sapply(ls(envir = .GlobalEnv),
                                                  function(t) is.data.frame(get(t)))]
         if(length(dt_list) == 0)
-                dt_list <- "No dataframes/datatables in environment"
+                dt_list <- list("No dataframes in environment")
 
         dt_list
 }

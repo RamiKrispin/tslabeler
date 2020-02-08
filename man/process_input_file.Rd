@@ -4,8 +4,7 @@
 \alias{process_input_file}
 \title{Processes input CSV/TSV files}
 \usage{
-process_input_file(input_file, sep, quote, ANOMALY_TAGS, GROUPS,
-  date_coltype)
+process_input_file(input_file, sep, quote, ANOMALY_TAGS, GROUPS, date_coltype)
 }
 \arguments{
 \item{input_file}{}
@@ -19,6 +18,9 @@ process_input_file(input_file, sep, quote, ANOMALY_TAGS, GROUPS,
 \item{GROUPS}{}
 
 \item{date_coltype}{}
+}
+\value{
+
 }
 \description{
 This file would contain the timeseries to be labeled. A typical file will contain a minimum of 3 columns

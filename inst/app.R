@@ -2,7 +2,7 @@ options(shiny.maxRequestSize = 100 * 1024 ^ 2)
 source("ui-code.R")
 source("tab-code.R")
   
-# Initial Processessing --------------------------------------------------------------------
+# Initial Processessing ---------------------------------------------------
 
 dt_list <- tslabeler:::get_dt_from_env()
 
@@ -115,7 +115,7 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$df_to_load, {
     shiny::req(input$df_to_load)
-    if(all(input$df_to_load!="No dataframes/datatables in memory")){
+    if(all(input$df_to_load!="No dataframes in environment")){
       out <- eval(parse(text = input$df_to_load))
       values$dfname <- input$df_to_load
       values$original <- out

@@ -20,6 +20,6 @@ Imports:
     reactable,
     RColorBrewer,
     lubridate
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.2
 Suggests: 
     testthat (>= 2.1.0)
